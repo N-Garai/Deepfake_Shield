@@ -206,6 +206,7 @@
 
         let fileObject = null;
         let base64ImageData = null;
+        let lastApiCallTimestamp = 0; // Tracks the time of the last API call
 
         // --- Input Listeners ---
         dropZone.addEventListener('click', () => fileInput.click());
@@ -374,13 +375,25 @@
         });
 
         async function performAnalysis() {
+            // --- Rate Limiting Logic ---
+            const now = Date.now();
+            const COOLDOWN_PERIOD = 10000; // 10 seconds in milliseconds
+            if (now - lastApiCallTimestamp < COOLDOWN_PERIOD) {
+                const timeLeft = Math.ceil((COOLDOWN_PERIOD - (now - lastApiCallTimestamp)) / 1000);
+                showError(`To stay within the free tier, please wait ${timeLeft} more seconds before the next analysis.`);
+                return; // Stop the function here
+            }
+            // --- End Rate Limiting Logic ---
+
             resultsContainer.classList.remove('hidden');
             resultsContent.classList.add('hidden');
             loadingState.classList.remove('hidden');
             errorState.classList.add('hidden');
             analyzeBtn.disabled = true;
+            
+            lastApiCallTimestamp = Date.now(); // Update timestamp before the call
 
-            const apiKey = ""; // Canvas will provide this
+            const apiKey = "%VITE_GEMINI_API_KEY%"; // Vercel will replace this with your environment variable
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
 
             const systemPrompt = "You are a world-class digital forensics expert specializing in detecting AI-generated images (deepfakes). Your analysis should be critical and detailed.";
@@ -523,4 +536,6 @@
 
 </body>
 </html>
+
+
 
