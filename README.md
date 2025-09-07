@@ -96,3 +96,7 @@ Just link your GitHub repo for continuous deployment.
 ## 📄 License
 
 Licensed under the MIT License. See the
+
+## 🚀 Live Demo
+
+You can view the live application here: https://deepfakespy.vercel.app/
