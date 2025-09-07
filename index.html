@@ -1,319 +1,218 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Deepfake Spy</title>
+    <title>Deepfake Spy - AI Deepfake Detector</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script> <!-- EXIF Library -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/exif-js/2.3.0/exif.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
+            background: linear-gradient(-45deg, #0f0c29, #302b63, #24243e);
+            background-size: 400% 400%;
+            animation: gradientBG 15s ease infinite;
         }
-        .drop-zone {
-            border: 2px dashed #4a5568;
-            border-radius: 0.5rem;
-            transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+
+        @keyframes gradientBG {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
-        .drop-zone--over {
-            border-color: #4c51bf;
-            background-color: #2c314d;
+        
+        .progress-ring__circle {
+            transition: stroke-dashoffset 0.5s ease-in-out;
+            transform: rotate(-90deg);
+            transform-origin: 50% 50%;
         }
-        .loader {
-            border-top-color: #4c51bf;
-            animation: spin 1s linear infinite;
+
+        .heatmap-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        .heatmap-region {
+            position: absolute;
+            border: 2px solid rgba(255, 0, 0, 0.7);
+            background: radial-gradient(circle, rgba(255, 0, 0, 0.1) 0%, rgba(255, 0, 0, 0.6) 100%);
+            border-radius: 4px;
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+            animation: pulse 2s infinite;
         }
-        @keyframes spin {
-            to {
-                transform: rotate(360deg);
-            }
-        }
-        .progress-circle {
-            transition: stroke-dashoffset 0.5s ease-out;
-        }
-        .modal {
-            transition: opacity 0.25s ease;
-        }
-        #fetchUrlBtn:disabled {
-            cursor: not-allowed;
-            background-color: #4a5568;
+
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.7; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(1); opacity: 0.7; }
         }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-200 min-h-screen flex items-center justify-center p-4">
 
-    <div class="w-full max-w-2xl mx-auto">
-        <header class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-white mb-2">Deepfake Spy</h1>
-            <p class="text-gray-400">Upload an image to analyze it for signs of AI manipulation.</p>
-        </header>
+<body class="text-gray-200">
+    <div class="min-h-screen flex flex-col items-center justify-center p-4">
+        <main class="w-full max-w-2xl bg-gray-900/30 backdrop-blur-md rounded-2xl shadow-2xl p-6 md:p-8 border border-gray-700">
+            <header class="text-center mb-6">
+                <h1 class="text-4xl md:text-5xl font-extrabold text-white">Deepfake Spy</h1>
+                <p class="text-indigo-300 mt-2">Uncover hidden truths with AI-powered deepfake detection.</p>
+            </header>
 
-        <main class="bg-gray-800 shadow-2xl rounded-lg p-6 md:p-8">
-            <div id="inputMethodContainer">
-                <!-- Upload Area -->
-                <div id="uploadContainer">
-                    <div id="dropZone" class="drop-zone p-10 text-center cursor-pointer hover:bg-gray-700/50">
-                        <input type="file" id="fileInput" class="hidden" accept="image/png, image/jpeg, image/webp">
-                        <div class="flex flex-col items-center">
-                            <svg class="w-16 h-16 text-gray-500 mb-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-4-4V7a4 4 0 014-4h10a4 4 0 014 4v5a4 4 0 01-4 4H7z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                            <p class="text-gray-400">
-                                <span class="font-semibold text-indigo-400">Click to upload</span> or drag and drop
-                            </p>
-                            <p class="text-xs text-gray-500 mt-1">PNG, JPG, or WEBP</p>
-                        </div>
+            <!-- Main Interactive Area -->
+            <div id="uploadArea">
+                <div id="dropZone" class="relative block w-full h-48 p-4 text-center border-2 border-dashed border-gray-600 rounded-lg cursor-pointer hover:border-indigo-400 transition-colors">
+                    <div class="flex flex-col items-center justify-center h-full">
+                        <svg class="w-12 h-12 text-gray-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                        <p class="mt-2 text-sm font-semibold text-gray-400">Click to upload or drag & drop</p>
+                        <p class="text-xs text-gray-500">PNG, JPG, or WEBP</p>
                     </div>
+                    <input type="file" id="fileInput" class="hidden" accept="image/png, image/jpeg, image/webp">
                 </div>
-
-                <!-- Divider -->
-                <div class="relative flex py-5 items-center">
-                    <div class="flex-grow border-t border-gray-600"></div>
-                    <span class="flex-shrink mx-4 text-gray-500">OR</span>
-                    <div class="flex-grow border-t border-gray-600"></div>
-                </div>
-
-                <!-- URL Input Area -->
-                <div id="urlContainer" class="flex flex-col sm:flex-row gap-3">
-                    <input type="url" id="imageUrlInput" placeholder="Paste image URL here..." class="flex-1 bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-white placeholder-gray-500">
-                    <button id="fetchUrlBtn" class="bg-gray-600 text-white font-semibold py-3 px-5 rounded-lg hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition duration-300">
-                        Fetch Image
-                    </button>
+                <div class="mt-4">
+                    <label for="imageUrl" class="text-sm font-medium text-gray-400">Or analyze from URL</label>
+                    <div class="flex gap-2 mt-1">
+                        <input type="text" id="imageUrl" placeholder="https://..." class="flex-grow bg-gray-800 border border-gray-700 text-white text-sm rounded-lg focus:ring-indigo-500 focus:border-indigo-500 block w-full p-2.5">
+                        <button id="fetchUrlBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition-colors">Fetch</button>
+                    </div>
                 </div>
             </div>
 
-            <!-- Image Preview -->
+            <!-- Preview & Analyze Section -->
             <div id="previewContainer" class="hidden text-center mt-6">
-                <div class="relative inline-block mx-auto">
-                    <img id="imagePreview" src="#" alt="Image Preview" class="max-w-full max-h-72 mx-auto rounded-lg shadow-md">
-                    <canvas id="heatmapCanvas" class="absolute top-0 left-0 w-full h-full rounded-lg pointer-events-none" style="display: none;"></canvas>
+                <p class="text-lg font-semibold mb-4">Image Ready for Analysis</p>
+                <div class="relative inline-block border-2 border-gray-700 rounded-lg overflow-hidden">
+                    <img id="imagePreview" src="" alt="Image Preview" class="max-w-xs max-h-64 object-contain rounded-md">
+                    <div id="heatmapOverlay" class="heatmap-overlay"></div>
                 </div>
-                <div class="flex justify-center items-center gap-4 mt-4">
-                    <button id="showExifBtn" class="text-sm text-blue-400 hover:text-blue-300 hidden">Show EXIF Data</button>
-                    <button id="removeImageBtn" class="text-sm text-red-400 hover:text-red-300">Remove Image</button>
+                <div class="mt-4 flex flex-col sm:flex-row justify-center items-center gap-3">
+                    <button id="analyzeBtn" class="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg transition-transform transform hover:scale-105">Analyze Image</button>
+                    <button id="resetBtn" class="w-full sm:w-auto bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg">Try Another</button>
+                    <button id="showExifBtn" class="hidden w-full sm:w-auto bg-gray-700 hover:bg-gray-600 text-white font-bold py-3 px-6 rounded-lg">Show EXIF Data</button>
                 </div>
             </div>
-
-            <!-- Analyze Button -->
-            <div class="mt-8 text-center">
-                <button id="analyzeBtn" class="bg-indigo-600 text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition duration-300 disabled:bg-gray-600 disabled:cursor-not-allowed disabled:shadow-none" disabled>
-                    Analyze Image
-                </button>
-            </div>
-
-             <!-- Results / Loading Area -->
-            <div id="resultsContainer" class="mt-8 pt-6 border-t border-gray-700 hidden">
-                <!-- Loading State -->
-                <div id="loadingState" class="text-center hidden">
-                    <div class="flex items-center justify-center">
-                         <div class="loader ease-linear rounded-full border-4 border-t-4 border-gray-600 h-12 w-12 mb-4"></div>
-                    </div>
-                    <p class="text-gray-400 animate-pulse">Analyzing image... this may take a moment.</p>
+            
+            <!-- Results Section -->
+            <div id="resultsContainer" class="hidden mt-6">
+                <div id="loadingState" class="text-center p-6">
+                    <svg class="animate-spin h-10 w-10 text-indigo-400 mx-auto" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                    <p class="mt-4 text-lg font-semibold text-white">AI Analysis in Progress...</p>
+                    <p class="text-sm text-gray-400">This can take a few moments.</p>
                 </div>
-
-                <!-- Results Display -->
                 <div id="resultsContent" class="hidden">
                     <h2 class="text-2xl font-bold text-center text-white mb-6">Analysis Result</h2>
                     <div class="bg-gray-900/50 rounded-lg p-6 flex flex-col md:flex-row items-center gap-6">
                         <div class="relative w-36 h-36 flex items-center justify-center">
-                            <svg class="transform -rotate-90 w-full h-full">
-                                <circle class="text-gray-700" stroke-width="10" stroke="currentColor" fill="transparent" r="58" cx="72" cy="72" />
-                                <circle id="progressCircle" class="text-indigo-500" stroke-width="10" stroke-linecap="round" stroke="currentColor" fill="transparent" r="58" cx="72" cy="72" style="stroke-dasharray: 364; stroke-dashoffset: 364;" />
-                            </svg>
+                            <svg class="w-full h-full" viewBox="0 0 120 120"><circle class="text-gray-700" stroke-width="8" stroke="currentColor" fill="transparent" r="56" cx="60" cy="60" /><circle id="progressCircle" class="progress-ring__circle text-indigo-400" stroke-width="8" stroke-linecap="round" stroke="currentColor" fill="transparent" r="56" cx="60" cy="60" /></svg>
                             <span id="probabilityText" class="absolute text-3xl font-bold">0%</span>
                         </div>
                         <div class="flex-1 text-center md:text-left">
-                            <p class="text-lg font-medium text-gray-400">Deepfake Probability</p>
-                            <p id="verdictText" class="text-2xl font-semibold mt-1">Calculating...</p>
-                            <div id="analysisBox" class="mt-4 text-sm text-gray-400 bg-gray-800 p-3 rounded-md max-h-40 overflow-y-auto">
-                                <p id="analysisText">Waiting for analysis...</p>
-                            </div>
+                            <p class="text-lg font-medium text-gray-400">Likelihood of Deepfake</p>
+                            <p id="verdictText" class="text-2xl font-bold mt-1">Calculating...</p>
+                            <div id="analysisBox" class="mt-4 text-sm text-gray-400 bg-gray-800 p-3 rounded-md max-h-40 overflow-y-auto"><p id="analysisText">Waiting for analysis...</p></div>
                         </div>
                     </div>
-
-                    <!-- Forensic Breakdown -->
                     <div id="forensicsReport" class="mt-6 hidden">
                         <h3 class="text-xl font-bold text-center text-white mb-4">Forensic Breakdown</h3>
-                        <div id="forensicsList" class="space-y-3">
-                            <!-- This will be populated by JavaScript -->
-                        </div>
+                        <div id="forensicsList" class="space-y-3"></div>
                     </div>
-
                 </div>
-                 <!-- Error Message -->
                 <div id="errorState" class="hidden text-center text-red-400 bg-red-900/50 p-4 rounded-lg">
                     <p><strong>Analysis Failed</strong></p>
-                    <p id="errorMessage">An unexpected error occurred. Please try again.</p>
+                    <p id="errorMessage" class="text-sm mt-1">An unknown error occurred.</p>
                 </div>
             </div>
-            
-            <footer class="text-center mt-8 text-xs text-gray-500">
-                <p>Disclaimer: This tool uses AI to estimate the likelihood of an image being a deepfake. It is not 100% accurate and should be used for informational purposes only.</p>
-            </footer>
         </main>
     </div>
 
     <!-- EXIF Modal -->
-    <div id="exifModal" class="modal fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50 invisible opacity-0">
-        <div class="bg-gray-800 text-gray-200 rounded-lg shadow-2xl w-full max-w-lg max-h-[80vh] overflow-y-auto p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold">Image Metadata (EXIF)</h2>
+    <div id="exifModal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-50">
+        <div class="bg-gray-800 rounded-lg shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
+            <div class="flex justify-between items-center p-4 border-b border-gray-700">
+                <h3 class="text-lg font-semibold text-white">EXIF Metadata</h3>
                 <button id="closeExifBtn" class="text-gray-400 hover:text-white">&times;</button>
             </div>
-            <div id="exifDataContainer" class="text-sm space-y-2">
-                <!-- EXIF data will be populated here -->
-            </div>
+            <div id="exifDataContainer" class="p-4 overflow-y-auto text-sm"></div>
         </div>
     </div>
 
     <script>
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
-        const analyzeBtn = document.getElementById('analyzeBtn');
-        const imagePreview = document.getElementById('imagePreview');
+        const imageUrlInput = document.getElementById('imageUrl');
+        const fetchUrlBtn = document.getElementById('fetchUrlBtn');
+        const uploadArea = document.getElementById('uploadArea');
         const previewContainer = document.getElementById('previewContainer');
-        const removeImageBtn = document.getElementById('removeImageBtn');
+        const imagePreview = document.getElementById('imagePreview');
+        const analyzeBtn = document.getElementById('analyzeBtn');
+        const resetBtn = document.getElementById('resetBtn');
         const resultsContainer = document.getElementById('resultsContainer');
         const loadingState = document.getElementById('loadingState');
         const resultsContent = document.getElementById('resultsContent');
         const errorState = document.getElementById('errorState');
         const errorMessage = document.getElementById('errorMessage');
-
-        // New URL elements
-        const inputMethodContainer = document.getElementById('inputMethodContainer');
-        const imageUrlInput = document.getElementById('imageUrlInput');
-        const fetchUrlBtn = document.getElementById('fetchUrlBtn');
-
         const probabilityText = document.getElementById('probabilityText');
         const verdictText = document.getElementById('verdictText');
         const analysisText = document.getElementById('analysisText');
         const progressCircle = document.getElementById('progressCircle');
-
-        // Heatmap element
-        const heatmapCanvas = document.getElementById('heatmapCanvas');
-
-        // Forensics elements
         const forensicsReport = document.getElementById('forensicsReport');
         const forensicsList = document.getElementById('forensicsList');
-
-        // EXIF elements
         const exifModal = document.getElementById('exifModal');
         const showExifBtn = document.getElementById('showExifBtn');
         const closeExifBtn = document.getElementById('closeExifBtn');
         const exifDataContainer = document.getElementById('exifDataContainer');
+        const heatmapOverlay = document.getElementById('heatmapOverlay');
 
         let fileObject = null;
         let base64ImageData = null;
-        let lastApiCallTimestamp = 0; // Tracks the time of the last API call
+        let lastApiCallTimestamp = 0;
 
-        // --- Input Listeners ---
+        // --- Event Listeners ---
         dropZone.addEventListener('click', () => fileInput.click());
-        dropZone.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            dropZone.classList.add('drop-zone--over');
-        });
-        ['dragleave', 'dragend'].forEach(type => {
-            dropZone.addEventListener(type, () => {
-                dropZone.classList.remove('drop-zone--over');
-            });
-        });
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('border-indigo-400'); });
+        dropZone.addEventListener('dragleave', (e) => { e.preventDefault(); dropZone.classList.remove('border-indigo-400'); });
         dropZone.addEventListener('drop', (e) => {
             e.preventDefault();
-            dropZone.classList.remove('drop-zone--over');
-            if (e.dataTransfer.files.length) {
-                const droppedFile = e.dataTransfer.files[0];
-                if (droppedFile.type.startsWith('image/')) {
-                    handleFile(droppedFile);
-                } else {
-                    showError('Please drop an image file (PNG, JPG, WEBP).');
-                }
-            }
+            dropZone.classList.remove('border-indigo-400');
+            if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
         });
-        
-        fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length) {
-                handleFile(e.target.files[0]);
-            }
-        });
-
-        removeImageBtn.addEventListener('click', resetState);
+        fileInput.addEventListener('change', (e) => { if (e.target.files.length > 0) handleFile(e.target.files[0]); });
         fetchUrlBtn.addEventListener('click', handleUrlFetch);
-        imageUrlInput.addEventListener('keyup', (e) => {
-            if (e.key === 'Enter') {
-                handleUrlFetch();
-            }
-        });
+        resetBtn.addEventListener('click', resetUI);
+        analyzeBtn.addEventListener('click', performAnalysis);
 
-
-        // --- URL Fetching Logic ---
-        async function handleUrlFetch() {
-            const url = imageUrlInput.value.trim();
-            if (!url) {
-                showError('Please enter a valid image URL.');
-                return;
-            }
-
-            fetchUrlBtn.disabled = true;
-            fetchUrlBtn.textContent = 'Fetching...';
-            errorState.classList.add('hidden'); // Hide previous errors
-
-            // Use a CORS proxy to bypass browser security restrictions.
-            // This service fetches the image on its server and sends it back to us.
-            const proxyUrl = 'https://api.allorigins.win/raw?url=';
-            const fetchUrl = proxyUrl + encodeURIComponent(url);
-
-            try {
-                const response = await fetch(fetchUrl);
-                if (!response.ok) {
-                    throw new Error(`Failed to fetch image. Server responded with status: ${response.status}`);
-                }
-                const blob = await response.blob();
-                if (!blob.type.startsWith('image/')) {
-                    throw new Error('The provided URL does not point to a valid image file.');
-                }
-                const fileName = url.substring(url.lastIndexOf('/') + 1) || 'image_from_url.jpg';
-                const file = new File([blob], fileName, { type: blob.type });
-                handleFile(file);
-            } catch (error) {
-                console.error('Error fetching image from URL:', error);
-                showError(`Could not fetch image. The URL might be invalid, private, or the server might be blocking requests. Details: ${error.message}`);
-            } finally {
-                fetchUrlBtn.disabled = false;
-                fetchUrlBtn.textContent = 'Fetch Image';
-            }
-        }
-
-        // --- File Handling ---
+        // --- UI Functions ---
         function handleFile(file) {
+            if (!file.type.startsWith('image/')) { alert('Please upload an image file.'); return; }
             fileObject = file;
-            readExifData(file); // Attempt to read EXIF data
-            
-            const ctx = heatmapCanvas.getContext('2d');
-            ctx.clearRect(0, 0, heatmapCanvas.width, heatmapCanvas.height);
-            heatmapCanvas.style.display = 'none';
-
             const reader = new FileReader();
             reader.onload = (e) => {
                 imagePreview.src = e.target.result;
                 base64ImageData = e.target.result.split(',')[1];
-                inputMethodContainer.classList.add('hidden');
+                uploadArea.classList.add('hidden');
                 previewContainer.classList.remove('hidden');
                 analyzeBtn.disabled = false;
-                resultsContainer.classList.add('hidden');
-                resultsContent.classList.add('hidden');
-                errorState.classList.add('hidden');
+                readExifData(file);
             };
-            reader.readAsDataURL(fileObject);
+            reader.readAsDataURL(file);
         }
 
-        function resetState() {
+        async function handleUrlFetch() {
+            const url = imageUrlInput.value.trim();
+            if (!url) { alert('Please enter a valid image URL.'); return; }
+            try {
+                const proxyUrl = `https://proxy.cors.sh/${url}`;
+                const response = await fetch(proxyUrl, { headers: { 'x-cors-api-key': 'temp_61e15147425c28059089783f99b3b841' } });
+                if (!response.ok) throw new Error(`Failed to fetch image. Status: ${response.status}`);
+                const blob = await response.blob();
+                handleFile(new File([blob], "fetched_image.jpg", { type: blob.type }));
+            } catch (error) {
+                console.error("URL Fetch Error:", error);
+                alert(`Could not load image from URL: ${error.message}`);
+            }
+        }
+
+        function resetUI() {
             fileObject = null;
             base64ImageData = null;
-            fileInput.value = ''; 
+            fileInput.value = '';
             imageUrlInput.value = '';
-            inputMethodContainer.classList.remove('hidden');
+            uploadArea.classList.remove('hidden');
             previewContainer.classList.add('hidden');
             analyzeBtn.disabled = true;
             resultsContainer.classList.add('hidden');
@@ -321,221 +220,144 @@
             errorState.classList.add('hidden');
             showExifBtn.classList.add('hidden');
             forensicsReport.classList.add('hidden');
-
-            const ctx = heatmapCanvas.getContext('2d');
-            ctx.clearRect(0, 0, heatmapCanvas.width, heatmapCanvas.height);
-            heatmapCanvas.style.display = 'none';
+            heatmapOverlay.innerHTML = '';
         }
 
-        // --- EXIF Data Logic ---
         function readExifData(file) {
             EXIF.getData(file, function() {
                 const allTags = EXIF.getAllTags(this);
-                if (Object.keys(allTags).length === 0) {
-                    exifDataContainer.innerHTML = '<p class="text-gray-500">No EXIF metadata found in this image. It might have been stripped.</p>';
-                    showExifBtn.classList.add('hidden');
-                    return;
+                if (Object.keys(allTags).length === 0) { showExifBtn.classList.add('hidden'); return; }
+                let tableHtml = '<table class="w-full text-left text-gray-300">';
+                for (let tag in allTags) {
+                    if (allTags.hasOwnProperty(tag)) tableHtml += `<tr><td class="font-semibold p-2">${tag}</td><td class="p-2">${allTags[tag]}</td></tr>`;
                 }
-                
-                let html = '<dl class="grid grid-cols-3 gap-x-4 gap-y-2">';
-                const tagsToShow = {
-                    'Make': 'Camera Make', 'Model': 'Camera Model', 'DateTime': 'Date Taken',
-                    'Software': 'Software', 'ExposureTime': 'Exposure Time', 'FNumber': 'F-Number',
-                    'ISOSpeedRatings': 'ISO', 'GPSLatitude': 'Latitude', 'GPSLongitude': 'Longitude'
-                };
-
-                for (const tag in tagsToShow) {
-                    if (allTags[tag]) {
-                         html += `<dt class="font-semibold text-gray-400 col-span-1">${tagsToShow[tag]}</dt>`;
-                         html += `<dd class="text-white col-span-2">${allTags[tag]}</dd>`;
-                    }
-                }
-                html += '</dl>';
-
-                exifDataContainer.innerHTML = html;
+                tableHtml += '</table>';
+                exifDataContainer.innerHTML = tableHtml;
                 showExifBtn.classList.remove('hidden');
             });
         }
+        showExifBtn.addEventListener('click', () => exifModal.classList.remove('hidden'));
+        closeExifBtn.addEventListener('click', () => exifModal.classList.add('hidden'));
+        exifModal.addEventListener('click', (e) => { if (e.target === exifModal) exifModal.classList.add('hidden'); });
 
-        showExifBtn.addEventListener('click', () => exifModal.classList.remove('invisible', 'opacity-0'));
-        closeExifBtn.addEventListener('click', () => exifModal.classList.add('invisible', 'opacity-0'));
-        window.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && !exifModal.classList.contains('invisible')) {
-                closeExifBtn.click();
-            }
-        });
-
-        // --- API Call and Analysis ---
-        analyzeBtn.addEventListener('click', () => {
-            if (!base64ImageData) {
-                showError('Please select an image first.');
-                return;
-            }
-            performAnalysis();
-        });
-
+        // --- AI Analysis ---
         async function performAnalysis() {
-            // --- Rate Limiting Logic ---
+            if (!fileObject) { showError("No file selected for analysis."); return; }
+
             const now = Date.now();
-            const COOLDOWN_PERIOD = 10000; // 10 seconds in milliseconds
+            const COOLDOWN_PERIOD = 10000;
             if (now - lastApiCallTimestamp < COOLDOWN_PERIOD) {
                 const timeLeft = Math.ceil((COOLDOWN_PERIOD - (now - lastApiCallTimestamp)) / 1000);
-                showError(`To stay within the free tier, please wait ${timeLeft} more seconds before the next analysis.`);
-                return; // Stop the function here
+                showError(`Please wait ${timeLeft} more seconds before the next analysis.`);
+                return;
             }
-            // --- End Rate Limiting Logic ---
 
             resultsContainer.classList.remove('hidden');
             resultsContent.classList.add('hidden');
             loadingState.classList.remove('hidden');
             errorState.classList.add('hidden');
             analyzeBtn.disabled = true;
-            
-            lastApiCallTimestamp = Date.now(); // Update timestamp before the call
-
-            const apiKey = "%VITE_GEMINI_API_KEY%"; // Vercel will replace this with your environment variable
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-            const systemPrompt = "You are a world-class digital forensics expert specializing in detecting AI-generated images (deepfakes). Your analysis should be critical and detailed.";
-            const userQuery = `Analyze this image for signs of AI generation or deepfake manipulation. Provide a main probability score (0-100). If you are extremely confident the image is authentic with no signs of manipulation, the score should be between 0 and 2. Provide a short one-sentence verdict, and a concise overall analysis. Provide a detailed forensic breakdown as an array of objects for these exact categories: 'Lighting & Shadows', 'Skin Texture', 'Eye & Face Consistency', and 'Background Anomalies'. Each object in the array must have 'category', 'score' (0-100), and 'reason' keys. Finally, identify potential manipulation hotspots as an array of objects called 'heatmap_regions'. Each object should have 'x', 'y', 'width', 'height' as percentages of the image dimensions, and a 'confidence' score (0-1).`;
+            lastApiCallTimestamp = Date.now();
 
             const payload = {
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                contents: [ { role: "user", parts: [ { text: userQuery }, { inlineData: { mimeType: fileObject.type, data: base64ImageData } } ] } ],
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: "OBJECT",
-                        properties: {
-                            probability: { type: "NUMBER" }, verdict: { type: "STRING" }, analysis: { type: "STRING" },
-                            forensics: { type: "ARRAY", items: { type: "OBJECT", properties: { category: { type: "STRING" }, score: { type: "NUMBER" }, reason: { type: "STRING" } }, required: ["category", "score", "reason"] } },
-                            heatmap_regions: { type: "ARRAY", items: { type: "OBJECT", properties: { x: { type: "NUMBER" }, y: { type: "NUMBER" }, width: { type: "NUMBER" }, height: { type: "NUMBER" }, confidence: { type: "NUMBER" } }, required: ["x", "y", "width", "height", "confidence"] } }
-                        },
-                        required: ["probability", "verdict", "analysis", "forensics", "heatmap_regions"]
-                    }
-                }
+                mimeType: fileObject.type,
+                imageData: base64ImageData
             };
 
             try {
-                let response; let retries = 3; let delay = 1000;
-                for (let i = 0; i < retries; i++) {
-                    response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
-                    if (response.ok) break;
-                    if (response.status === 429 || response.status >= 500) { await new Promise(resolve => setTimeout(resolve, delay)); delay *= 2; } 
-                    else { break; }
+                const response = await fetch('/api/proxy', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText);
                 }
-                
-                if (!response.ok) { const errorBody = await response.json(); throw new Error(`API Error: ${response.status} - ${errorBody.error?.message || 'Unknown error'}`); }
 
                 const result = await response.json();
-                const candidate = result.candidates?.[0];
-
-                if (candidate && candidate.content?.parts?.[0]?.text) {
-                    const parsedJson = JSON.parse(candidate.content.parts[0].text);
-                    displayResults(parsedJson);
-                } else {
-                    throw new Error("Invalid response structure from the API.");
-                }
+                displayResults(result);
 
             } catch (error) {
-                console.error("Analysis failed:", error);
-                showError(error.message);
-            } finally {
-                loadingState.classList.add('hidden');
+                console.error('API Error:', error);
+                showError(`Analysis failed: ${error.message}`);
                 analyzeBtn.disabled = false;
             }
-        }
-        
-        function drawHeatmap(regions) {
-            const ctx = heatmapCanvas.getContext('2d');
-            const img = imagePreview;
-
-            heatmapCanvas.width = img.clientWidth;
-            heatmapCanvas.height = img.clientHeight;
-            ctx.clearRect(0, 0, heatmapCanvas.width, heatmapCanvas.height);
-            heatmapCanvas.style.display = 'none';
-            if (!regions || regions.length === 0) { return; }
-            heatmapCanvas.style.display = 'block';
-
-            regions.forEach(region => {
-                const x = (region.x / 100) * heatmapCanvas.width;
-                const y = (region.y / 100) * heatmapCanvas.height;
-                const width = (region.width / 100) * heatmapCanvas.width;
-                const height = (region.height / 100) * heatmapCanvas.height;
-                const confidence = region.confidence;
-                const centerX = x + width / 2;
-                const centerY = y + height / 2;
-                const radius = Math.max(width, height) * 0.75;
-                if (radius <= 0) return;
-
-                const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
-                gradient.addColorStop(0, `rgba(255, 0, 0, ${confidence * 0.7})`);
-                gradient.addColorStop(0.5, `rgba(255, 100, 0, ${confidence * 0.3})`);
-                gradient.addColorStop(1, 'rgba(255, 200, 0, 0)');
-                ctx.fillStyle = gradient;
-                ctx.fillRect(x, y, width, height);
-            });
         }
 
         function displayResults(data) {
             loadingState.classList.add('hidden');
             resultsContent.classList.remove('hidden');
-            errorState.classList.add('hidden');
 
             const probability = Math.round(data.probability);
-            const verdict = data.verdict;
-            const analysis = data.analysis;
-
             probabilityText.textContent = `${probability}%`;
-            verdictText.textContent = verdict;
-            analysisText.textContent = analysis;
+            verdictText.textContent = data.verdict;
+            analysisText.textContent = data.analysis;
 
-            const circumference = 2 * Math.PI * 58;
+            const circumference = 2 * Math.PI * 56;
             const offset = circumference - (probability / 100) * circumference;
+            progressCircle.style.strokeDasharray = `${circumference} ${circumference}`;
             progressCircle.style.strokeDashoffset = offset;
-
+            
+            progressCircle.classList.remove('text-indigo-400', 'text-yellow-400', 'text-red-400');
+            verdictText.classList.remove('text-indigo-400', 'text-yellow-400', 'text-red-400');
             if (probability >= 75) {
-                progressCircle.classList.remove('text-indigo-500', 'text-yellow-500'); progressCircle.classList.add('text-red-500');
-                verdictText.classList.remove('text-indigo-400', 'text-yellow-400'); verdictText.classList.add('text-red-400');
+                progressCircle.classList.add('text-red-400');
+                verdictText.classList.add('text-red-400');
             } else if (probability >= 40) {
-                progressCircle.classList.remove('text-indigo-500', 'text-red-500'); progressCircle.classList.add('text-yellow-500');
-                verdictText.classList.remove('text-indigo-400', 'text-red-400'); verdictText.classList.add('text-yellow-400');
+                progressCircle.classList.add('text-yellow-400');
+                verdictText.classList.add('text-yellow-400');
             } else {
-                progressCircle.classList.remove('text-yellow-500', 'text-red-500'); progressCircle.classList.add('text-indigo-500');
-                verdictText.classList.remove('text-yellow-400', 'text-red-400'); verdictText.classList.add('text-indigo-400');
+                progressCircle.classList.add('text-indigo-400');
+                verdictText.classList.add('text-indigo-400');
             }
 
-            drawHeatmap(data.heatmap_regions);
-
+            forensicsList.innerHTML = '';
             if (data.forensics && data.forensics.length > 0) {
-                forensicsList.innerHTML = ''; 
                 data.forensics.forEach(item => {
                     const score = Math.round(item.score);
-                    let colorClass = 'bg-indigo-500'; let textColorClass = 'text-indigo-300';
+                    let colorClass = 'bg-indigo-500', textColorClass = 'text-indigo-300';
                     if (score >= 75) { colorClass = 'bg-red-500'; textColorClass = 'text-red-300'; } 
                     else if (score >= 40) { colorClass = 'bg-yellow-500'; textColorClass = 'text-yellow-300'; }
-
-                    const reportItem = `<div class="bg-gray-800 p-3 rounded-lg"><div class="flex justify-between items-center mb-1"><p class="font-semibold text-sm">${item.category}</p><p class="font-bold text-sm ${textColorClass}">${score}%</p></div><div class="w-full bg-gray-700 rounded-full h-2"><div class="${colorClass} h-2 rounded-full" style="width: ${score}%"></div></div><p class="text-xs text-gray-400 mt-2">${item.reason}</p></div>`;
+                    const reportItem = `
+                        <div class="bg-gray-800 p-3 rounded-lg">
+                            <div class="flex justify-between items-center mb-1">
+                                <p class="font-semibold text-sm">${item.category}</p>
+                                <p class="font-bold text-sm ${textColorClass}">${score}%</p>
+                            </div>
+                            <div class="w-full bg-gray-700 rounded-full h-2"><div class="${colorClass} h-2 rounded-full" style="width: ${score}%"></div></div>
+                            <p class="text-xs text-gray-400 mt-2">${item.reason}</p>
+                        </div>`;
                     forensicsList.innerHTML += reportItem;
                 });
                 forensicsReport.classList.remove('hidden');
             } else {
                  forensicsReport.classList.add('hidden');
             }
+
+            heatmapOverlay.innerHTML = '';
+            if (data.heatmap_regions && data.heatmap_regions.length > 0) {
+                data.heatmap_regions.forEach(region => {
+                    const regionEl = document.createElement('div');
+                    regionEl.className = 'heatmap-region';
+                    regionEl.style.left = `${region.x}%`;
+                    regionEl.style.top = `${region.y}%`;
+                    regionEl.style.width = `${region.width}%`;
+                    regionEl.style.height = `${region.height}%`;
+                    regionEl.style.opacity = region.confidence * 0.8 + 0.2;
+                    heatmapOverlay.appendChild(regionEl);
+                });
+            }
         }
         
         function showError(message) {
             loadingState.classList.add('hidden');
-            resultsContainer.classList.remove('hidden'); // Show the results area to display the error
             resultsContent.classList.add('hidden');
-            errorState.classList.remove('hidden');
             errorMessage.textContent = message;
+            errorState.classList.remove('hidden');
+            resultsContainer.classList.remove('hidden');
         }
-
     </script>
-
 </body>
 </html>
-
-
-
