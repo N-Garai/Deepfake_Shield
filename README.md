@@ -1,4 +1,4 @@
-# 🕵️‍♂️ Deepfake Detector
+# 🕵️‍♂️ Deepfake Shield
 
 **An advanced, browser-based tool that uses AI to analyze images for signs of deepfake manipulation and digital forgery.**
 
@@ -6,15 +6,13 @@
 
 ## 📖 Overview
 
-In an era of sophisticated digital manipulation, **Deepfake Detector** empowers you to scrutinize images with cutting-edge AI.  
+In an era of sophisticated digital manipulation, **Deepfake Shield** empowers you to scrutinize images with cutting-edge AI.  
 **No backend setup. No installation. 100% browser-based.**
 
 ---
 
 ## ✨ Key Features
 
-- **🤖 AI-Powered Analysis:**  
-  Integrates with Google's Gemini model for forensic image evaluation.
 - **📥 Easy Upload:**  
   Drag & drop images or browse files for instant analysis.
 - **📊 Authenticity Score:**  
@@ -95,6 +93,3 @@ Just link your GitHub repo for continuous deployment.
 
 Licensed under the MIT License. See the LICENSE file for details.
 
-## 🚀 Live Demo
-
-You can view the live application here: https://deepfakespy.vercel.app/
