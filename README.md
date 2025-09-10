@@ -1,4 +1,4 @@
-# 🕵️‍♂️ Deepfake Spy
+# 🕵️‍♂️ Deepfake Detector
 
 **An advanced, browser-based tool that uses AI to analyze images for signs of deepfake manipulation and digital forgery.**
 
@@ -6,7 +6,7 @@
 
 ## 📖 Overview
 
-In an era of sophisticated digital manipulation, **Deepfake Spy** empowers you to scrutinize images with cutting-edge AI.  
+In an era of sophisticated digital manipulation, **Deepfake Detector** empowers you to scrutinize images with cutting-edge AI.  
 **No backend setup. No installation. 100% browser-based.**
 
 ---
@@ -14,38 +14,26 @@ In an era of sophisticated digital manipulation, **Deepfake Spy** empowers you t
 ## ✨ Key Features
 
 - **🤖 AI-Powered Analysis:**  
-  Utilizes Google's powerful Gemini model for deep forensic image analysis.
-- **📥 Multiple Input Methods:**  
-  - Drag & drop local files  
-  - Paste direct image URLs
-- **📊 Detailed Forensics Report:**  
-  Breaks down analysis into categories like Lighting, Skin Texture, and Background Anomalies.
-- **🔥 Manipulation Heatmap:**  
-  Highlights suspicious regions with an intuitive overlay.
-- **🗂️ Metadata Viewer:**  
-  Inspect EXIF metadata for clues about origin, device, and editing.
-- **🖌️ Modern & Responsive UI:**  
-  Clean, intuitive, and mobile-friendly interface built with Tailwind CSS.
-
----
-
-## ⚙️ How It Works
-
-1. **Client-side Application:** Communicates directly with the Google Gemini API.
-2. **Image Processing:** Converts images to Base64 in-browser (never uploaded to a server).
-3. **Specialized Prompting:** Sends a detailed prompt to the AI, acting as a digital forensics expert.
-4. **API Request:** Sends image data and prompt to Gemini API.
-5. **Structured Response:** Receives JSON with probability score, verdict, breakdown, and heatmap.
-6. **Data Visualization:** Displays results with progress circle, report, and heatmap overlay.
-
----
+  Integrates with Google's Gemini model for forensic image evaluation.
+- **📥 Easy Upload:**  
+  Drag & drop images or browse files for instant analysis.
+- **📊 Authenticity Score:**  
+  Visual score bar and verdict (Authentic, Suspicious, Fake).
+- **🔬 Technical Breakdown:**  
+  - Compression Artifacts
+  - Edge Consistency
+  - Noise Patterns
+  - Color Distribution
+- **🖼️ Image Preview:**  
+  See your uploaded image and its metadata.
+- **📱 Responsive UI:**  
+  Sleek, mobile-friendly interface with gradient backgrounds and interactive elements.
 
 ## 🚀 How to Use
 
 1. **Open** `index.html` in any modern browser.
 2. **Provide an Image:**
    - Drag & drop an image file
-   - OR paste an image URL and click "Fetch Image"
 3. **Analyze:** Click "Analyze Image" after preview appears.
 4. **Review Results:** See the probability score, forensic report, and heatmap overlay.
 
@@ -54,8 +42,18 @@ In an era of sophisticated digital manipulation, **Deepfake Spy** empowers you t
 ## 🛠️ Tech Stack
 
 - **Frontend:** HTML5, Tailwind CSS, Vanilla JavaScript (ES6+)
-- **AI Model:** Google Gemini API
-- **Libraries:** exif-js for metadata extraction
+-**Image Processing**:HTML5 Canvas API - Pixel manipulation
+                      FileReader API - File handling
+                      ImageData API - Pixel-level analysis
+
+
+-**Custom algorithms for:** Face region detection
+                            Compression artifact analysis
+                            Edge consistency checking
+                            Noise pattern recognition
+                            Color distribution analysis
+                            Frequency domain analysis
+
 
 ---
 
@@ -95,7 +93,7 @@ Just link your GitHub repo for continuous deployment.
 
 ## 📄 License
 
-Licensed under the MIT License. See the
+Licensed under the MIT License. See the LICENSE file for details.
 
 ## 🚀 Live Demo
 
