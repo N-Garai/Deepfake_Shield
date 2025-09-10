@@ -40,18 +40,19 @@ In an era of sophisticated digital manipulation, **Deepfake Shield** empowers yo
 ## 🛠️ Tech Stack
 
 - **Frontend:** HTML5, Tailwind CSS, Vanilla JavaScript (ES6+)
-- **Image Processing**:HTML5 Canvas API - Pixel manipulation
-                      FileReader API - File handling
-                      ImageData API - Pixel-level analysis
+- **Image Processing**:
+- HTML5 Canvas API – Pixel manipulation
+- FileReader API – File handling
+- ImageData API – Pixel-level analysis
 
 
-- **Custom algorithms for:** Face region detection
-                            Compression artifact analysis
-                            Edge consistency checking
-                            Noise pattern recognition
-                            Color distribution analysis
-                            Frequency domain analysis
-
+- **Custom algorithms for:**
+  - Face region detection
+  - Compression artifact analysis
+  - Edge consistency checking
+  - Noise pattern recognition
+  - Color distribution analysis
+  - Frequency domain analysis
 
 ---
 
