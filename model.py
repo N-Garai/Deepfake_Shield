@@ -130,23 +130,26 @@ class DeepFakeDetector:
         if len(artifact_scores) > 0 and len(boundary_discontinuities) > 0:
             avg_artifact = np.mean(artifact_scores)
             avg_boundary = np.mean(boundary_discontinuities)
+            std_artifact = np.std(artifact_scores)
             
-            # Real photos: higher boundary discontinuity, moderate internal variation
-            # AI images: smoother boundaries, more uniform blocks
+            # Real photos: higher boundary discontinuity, more variation
+            # AI images: smoother boundaries, very uniform blocks
             boundary_ratio = avg_boundary / (avg_artifact + 1)
+            uniformity = std_artifact / (avg_artifact + 1)
             
-            # Higher score = more authentic
-            # Adjusted thresholds to be less aggressive
-            if boundary_ratio > 1.5:
-                score = 70 + min(30, boundary_ratio * 8)
-            elif boundary_ratio > 0.8:
-                score = 55 + (boundary_ratio - 0.8) * 20
-            elif boundary_ratio > 0.4:
-                score = 40 + (boundary_ratio - 0.4) * 35
+            # Higher score = more authentic (real photo characteristics)
+            if boundary_ratio > 1.5 and uniformity > 0.5:
+                score = 75 + min(25, boundary_ratio * 8)  # Clear real photo
+            elif boundary_ratio < 0.5 and uniformity < 0.3:
+                score = 15 + boundary_ratio * 30  # Clear AI (too smooth/uniform)
+            elif boundary_ratio > 1.0:
+                score = 60 + (boundary_ratio - 1.0) * 20
+            elif boundary_ratio > 0.6:
+                score = 45 + (boundary_ratio - 0.6) * 35
             else:
-                score = 30 + boundary_ratio * 25
+                score = 25 + boundary_ratio * 33
         else:
-            score = 60  # Default to neutral-positive if can't determine
+            score = 50  # Default to neutral if can't determine
         
         return min(100, max(0, score))
     
@@ -176,13 +179,28 @@ class DeepFakeDetector:
         edge_mean = np.mean(edge_magnitude[strong_edges]) if np.any(strong_edges) else 0
         
         # Natural images have higher edge variance
+        # AI images have overly consistent, smooth edges
         if edge_mean > 0:
             consistency_ratio = edge_variance / edge_mean
-            score = min(100, max(20, consistency_ratio * 10))
+            
+            print(f"  [EDGE DEBUG] variance={edge_variance:.2f}, mean={edge_mean:.2f}, ratio={consistency_ratio:.3f}")
+            
+            # Real photos: consistency_ratio usually > 15
+            # AI images: consistency_ratio usually < 8
+            if consistency_ratio > 20:
+                score = 90 + min(10, (consistency_ratio - 20) * 0.5)
+            elif consistency_ratio > 12:
+                score = 70 + (consistency_ratio - 12) * 2.5
+            elif consistency_ratio > 6:
+                score = 45 + (consistency_ratio - 6) * 4
+            elif consistency_ratio > 3:
+                score = 25 + (consistency_ratio - 3) * 6.5
+            else:
+                score = 10 + consistency_ratio * 5  # Very consistent edges - AI
         else:
             score = 50
         
-        return score
+        return min(100, max(0, score))
     
     def _analyze_noise_patterns(self, img_array):
         """
@@ -225,24 +243,40 @@ class DeepFakeDetector:
         # Score based on noise characteristics
         # Real photos: higher noise std, higher variance of variance
         # AI images: very low noise or overly uniform noise
-        if noise_std < 1.5:
-            score = 25  # Too clean, likely AI
+        
+        print(f"  [NOISE DEBUG] std={noise_std:.3f}, cv={noise_cv:.3f}, mean_var={mean_local_var:.3f}")
+        
+        if noise_std < 1.0:
+            # Extremely clean - very likely AI
+            score = 10 + noise_std * 15
+        elif noise_std < 3.0:
+            # Very clean - check uniformity carefully
+            if noise_cv < 0.5:
+                score = 20 + noise_cv * 30  # Uniform and clean (AI)
+            elif noise_cv < 1.0:
+                score = 35 + (noise_cv - 0.5) * 40  # Somewhat uniform
+            else:
+                score = 55 + (noise_cv - 1.0) * 25  # Clean but varied
         elif noise_std > 12:
-            score = 80 + min(20, (noise_std - 12) * 2)  # Natural sensor noise
-        elif noise_std > 5:
-            # Moderate noise - check uniformity
-            if noise_cv > 1.2:
-                score = 75 + min(20, (noise_cv - 1.2) * 15)  # Varied noise (real)
-            elif noise_cv > 0.6:
-                score = 55 + (noise_cv - 0.6) * 30
+            score = 85 + min(15, (noise_std - 12) * 2)  # Strong natural sensor noise
+        elif noise_std > 6:
+            # Good amount of noise - check variation
+            if noise_cv > 1.5:
+                score = 80 + min(15, (noise_cv - 1.5) * 10)  # Highly varied (real)
+            elif noise_cv > 0.8:
+                score = 65 + (noise_cv - 0.8) * 21
             else:
-                score = 40 + noise_cv * 25  # Somewhat uniform
+                score = 50 + noise_cv * 18
         else:
-            # Low noise - check if it's natural or artificial
-            if noise_cv > 0.8:
-                score = 60 + noise_cv * 20  # Low but varied (could be real)
+            # Moderate noise (3-6) - most critical range
+            if noise_cv > 1.2:
+                score = 70 + min(20, (noise_cv - 1.2) * 15)  # Varied noise (real)
+            elif noise_cv > 0.7:
+                score = 50 + (noise_cv - 0.7) * 40
+            elif noise_cv > 0.4:
+                score = 35 + (noise_cv - 0.4) * 50
             else:
-                score = 35 + noise_cv * 30  # Low and uniform (AI)
+                score = 20 + noise_cv * 37  # Very uniform (AI)
         
         return min(100, max(0, score))
     
@@ -318,34 +352,56 @@ class DeepFakeDetector:
             low_ratio = low_energy / total_energy
             high_ratio = high_energy / total_energy
             very_high_ratio = very_high_energy / total_energy
+            mid_ratio = mid_energy / total_energy
             
             # Calculate frequency distribution entropy
-            freq_dist = np.array([low_ratio, mid_energy/total_energy, high_ratio, very_high_ratio])
+            freq_dist = np.array([low_ratio, mid_ratio, high_ratio, very_high_ratio])
             freq_entropy = -np.sum(freq_dist * np.log2(freq_dist + 1e-10))
             
+            print(f"  [FREQ DEBUG] low={low_ratio:.3f}, vhigh={very_high_ratio:.4f}, entropy={freq_entropy:.3f}")
+            
             # AI images tend to have:
-            # 1. Too much low frequency (overly smooth)
-            # 2. Too little high frequency (lack of natural sensor noise)
+            # 1. Too much low frequency (overly smooth) - low_ratio > 0.85
+            # 2. Too little high frequency (lack of sensor noise) - very_high_ratio < 0.02
             # 3. Lower frequency entropy (less varied)
             
-            # Real photos typically: low_ratio 0.60-0.80, very_high_ratio > 0.03
-            if low_ratio > 0.88:
-                score = 15  # Extremely smooth - AI generated
-            elif low_ratio > 0.82:
-                score = 30  # Very smooth - likely AI
-            elif low_ratio < 0.55:
-                score = 95  # Natural detail distribution
-            else:
-                # Check high frequency content
-                if very_high_ratio > 0.05:
-                    score = 80 + min(20, very_high_ratio * 200)  # Good high freq
-                elif very_high_ratio > 0.02:
-                    score = 60 + (very_high_ratio - 0.02) * 600
+            # Real photos typically: low_ratio 0.55-0.80, very_high_ratio > 0.025
+            if low_ratio > 0.90:
+                score = 5  # Extremely smooth - definitely AI
+            elif low_ratio > 0.85:
+                score = 15 + (0.90 - low_ratio) * 200  # Very smooth - AI
+            elif low_ratio > 0.80:
+                # Check high freq to confirm
+                if very_high_ratio < 0.015:
+                    score = 25  # Smooth with no noise - AI
                 else:
-                    score = 35 + very_high_ratio * 1250  # Low high freq (AI)
-                
-                # Adjust based on entropy
-                score = score * (0.7 + freq_entropy * 0.15)
+                    score = 35 + very_high_ratio * 500
+            elif low_ratio < 0.50:
+                score = 95  # Excellent detail distribution - real
+            elif low_ratio < 0.65:
+                # Good balance - check high freq
+                if very_high_ratio > 0.04:
+                    score = 85 + min(15, very_high_ratio * 250)  # Strong high freq - real
+                elif very_high_ratio > 0.025:
+                    score = 70 + (very_high_ratio - 0.025) * 1000
+                else:
+                    score = 50 + very_high_ratio * 800
+            else:
+                # Moderate low freq (0.65-0.80) - check high frequency carefully
+                if very_high_ratio > 0.035:
+                    score = 75 + min(20, very_high_ratio * 400)  # Good high freq
+                elif very_high_ratio > 0.020:
+                    score = 55 + (very_high_ratio - 0.020) * 1300
+                elif very_high_ratio > 0.010:
+                    score = 35 + (very_high_ratio - 0.010) * 2000
+                else:
+                    score = 15 + very_high_ratio * 2000  # Almost no high freq - AI
+            
+            # Apply entropy adjustment (lower entropy = more AI-like)
+            if freq_entropy < 1.2:
+                score = score * 0.75  # Penalize low entropy
+            elif freq_entropy < 1.5:
+                score = score * 0.9
         else:
             score = 50
         
