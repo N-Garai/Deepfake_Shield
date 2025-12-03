@@ -831,7 +831,9 @@ body {
     </style>
 
     <script>
-// DeepFake Detection Core Script
+// DeepFake Detection Frontend - Calls Python API
+const API_URL = 'http://localhost:5000/api';
+
 class DeepFakeDetector {
     constructor() {
         this.initializeElements();
@@ -937,7 +939,7 @@ class DeepFakeDetector {
         const reader = new FileReader();
         reader.onload = (e) => {
             this.displayImage(e.target.result, file);
-            this.startAnalysis(file);
+            this.startAnalysis(e.target.result, file);
         };
         reader.readAsDataURL(file);
     }
@@ -957,159 +959,54 @@ class DeepFakeDetector {
         this.results.style.display = 'none';
     }
 
-    async startAnalysis(file) {
+    async startAnalysis(imageBase64, file) {
         try {
-            // Simulate analysis delay
-            await this.delay(2000);
+            // Call Python API for analysis
+            const response = await fetch(`${API_URL}/analyze`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    image: imageBase64
+                })
+            });
 
-            // Perform mock analysis
-            const results = await this.performAnalysis(file);
+            if (!response.ok) {
+                throw new Error(`API error: ${response.statusText}`);
+            }
+
+            const data = await response.json();
             
+            if (!data.success) {
+                throw new Error(data.message || 'Analysis failed');
+            }
+
             // Hide loading overlay
             this.loadingOverlay.style.display = 'none';
+
+            // Format results for display
+            const results = {
+                authenticityScore: data.results.authenticity_score,
+                compression: data.results.technical_details.compression_artifacts,
+                edgeConsistency: data.results.technical_details.edge_consistency,
+                noisePatterns: data.results.technical_details.noise_patterns,
+                colorDistribution: data.results.technical_details.color_distribution,
+                frequencyAnalysis: data.results.technical_details.frequency_analysis,
+                verdict: data.results.verdict,
+                filename: file.name,
+                filesize: this.formatFileSize(file.size),
+                modelVersion: data.results.model_version
+            };
 
             // Display results
             this.displayResults(results);
         } catch (error) {
             console.error('Analysis failed:', error);
             this.loadingOverlay.style.display = 'none';
-            alert('Analysis failed. Please try again.');
+            alert(`Analysis failed: ${error.message}\n\nMake sure the Python API server is running (python app.py)`);
+            this.resetInterface();
         }
-    }
-
-    async performAnalysis(file) {
-        // Mock AI analysis - in a real implementation, this would call actual ML models
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const img = new Image();
-        
-        return new Promise((resolve) => {
-            img.onload = () => {
-                canvas.width = img.width;
-                canvas.height = img.height;
-                ctx.drawImage(img, 0, 0);
-                
-                // Mock analysis based on image characteristics
-                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const pixels = imageData.data;
-                
-                // Calculate mock metrics
-                const compressionScore = this.calculateCompressionArtifacts(pixels);
-                const edgeScore = this.calculateEdgeConsistency(pixels, canvas.width, canvas.height);
-                const noiseScore = this.calculateNoisePatterns(pixels);
-                const colorScore = this.calculateColorDistribution(pixels);
-                
-                // Calculate overall authenticity score
-                const authenticityScore = (compressionScore + edgeScore + noiseScore + colorScore) / 4;
-                
-                // Add some randomness for demo purposes
-                const finalScore = Math.max(10, Math.min(90, authenticityScore + (Math.random() - 0.5) * 20));
-                
-                const results = {
-                    authenticityScore: Math.round(finalScore),
-                    compression: Math.round(compressionScore),
-                    edgeConsistency: Math.round(edgeScore),
-                    noisePatterns: Math.round(noiseScore),
-                    colorDistribution: Math.round(colorScore),
-                    filename: file.name,
-                    filesize: this.formatFileSize(file.size),
-                    timestamp: new Date().toISOString()
-                };
-                
-                resolve(results);
-            };
-            
-            img.src = this.previewImage.src;
-        });
-    }
-
-    calculateCompressionArtifacts(pixels) {
-        // Mock calculation - look for JPEG compression patterns
-        let artifactCount = 0;
-        const blockSize = 8;
-        
-        for (let i = 0; i < pixels.length; i += blockSize * 4) {
-            const r = pixels[i];
-            const g = pixels[i + 1];
-            const b = pixels[i + 2];
-            
-            // Simplified artifact detection
-            if (Math.abs(r - g) < 5 && Math.abs(g - b) < 5) {
-                artifactCount++;
-            }
-        }
-        
-        return Math.min(90, (artifactCount / (pixels.length / 4)) * 1000);
-    }
-
-    calculateEdgeConsistency(pixels, width, height) {
-        // Mock edge detection and consistency check
-        let edgeCount = 0;
-        let inconsistentEdges = 0;
-        
-        for (let y = 1; y < height - 1; y++) {
-            for (let x = 1; x < width - 1; x++) {
-                const idx = (y * width + x) * 4;
-                const current = pixels[idx];
-                const right = pixels[idx + 4];
-                const bottom = pixels[(y + 1) * width * 4 + x * 4];
-                
-                if (Math.abs(current - right) > 30 || Math.abs(current - bottom) > 30) {
-                    edgeCount++;
-                    
-                    // Check for unnatural edge patterns
-                    if (Math.abs(current - right) > 100 && Math.abs(current - bottom) < 10) {
-                        inconsistentEdges++;
-                    }
-                }
-            }
-        }
-        
-        return edgeCount > 0 ? Math.max(20, 80 - (inconsistentEdges / edgeCount) * 60) : 70;
-    }
-
-    calculateNoisePatterns(pixels) {
-        // Mock noise analysis
-        let totalVariation = 0;
-        let samples = 0;
-        
-        for (let i = 0; i < pixels.length; i += 40) {
-            if (i + 4 < pixels.length) {
-                const r1 = pixels[i];
-                const r2 = pixels[i + 4];
-                totalVariation += Math.abs(r1 - r2);
-                samples++;
-            }
-        }
-        
-        const avgVariation = totalVariation / samples;
-        
-        // Natural images have certain noise characteristics
-        if (avgVariation < 5) return 30; // Too smooth, likely AI
-        if (avgVariation > 25) return 90; // Natural variation
-        
-        return 50 + avgVariation;
-    }
-
-    calculateColorDistribution(pixels) {
-        // Mock color analysis
-        const colorBuckets = new Array(256).fill(0);
-        
-        for (let i = 0; i < pixels.length; i += 4) {
-            const gray = Math.round((pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3);
-            colorBuckets[gray]++;
-        }
-        
-        // Check for unnatural color distribution
-        let peaks = 0;
-        for (let i = 1; i < 255; i++) {
-            if (colorBuckets[i] > colorBuckets[i - 1] && colorBuckets[i] > colorBuckets[i + 1]) {
-                peaks++;
-            }
-        }
-        
-        // Natural images typically have smoother distributions
-        return peaks < 10 ? 40 : Math.min(85, 60 + peaks);
     }
 
     displayResults(results) {
@@ -1120,40 +1017,35 @@ class DeepFakeDetector {
         this.results.style.display = 'block';
         
         // Set authenticity score
-        this.scoreValue.textContent = `${results.authenticityScore}%`;
+        this.scoreValue.textContent = `${results.authenticityScore.toFixed(1)}%`;
         this.scoreFill.style.width = `${results.authenticityScore}%`;
         
-        // Determine verdict
-        let verdictClass, iconClass, title, description;
+        // Use verdict from API
+        const verdict = results.verdict;
+        let verdictClass, iconClass;
         
-        if (results.authenticityScore >= 70) {
+        if (verdict.classification === 'authentic') {
             verdictClass = 'authentic';
             iconClass = 'fas fa-check-circle';
-            title = 'Likely Authentic';
-            description = 'This image shows strong indicators of being genuine with natural characteristics.';
-        } else if (results.authenticityScore >= 40) {
+        } else if (verdict.classification === 'suspicious') {
             verdictClass = 'suspicious';
             iconClass = 'fas fa-exclamation-triangle';
-            title = 'Suspicious';
-            description = 'This image shows mixed indicators. Further analysis may be needed for conclusive results.';
         } else {
             verdictClass = 'fake';
             iconClass = 'fas fa-times-circle';
-            title = 'Likely AI-Generated';
-            description = 'This image shows strong indicators of being artificially generated or heavily manipulated.';
         }
         
         // Apply verdict styling
         this.verdict.className = `verdict ${verdictClass}`;
         this.verdictIcon.className = iconClass;
-        this.verdictTitle.textContent = title;
-        this.verdictDescription.textContent = description;
+        this.verdictTitle.textContent = verdict.title;
+        this.verdictDescription.textContent = verdict.description;
         
         // Set technical details
-        this.compressionValue.textContent = `${results.compression}%`;
-        this.edgeValue.textContent = `${results.edgeConsistency}%`;
-        this.noiseValue.textContent = `${results.noisePatterns}%`;
-        this.colorValue.textContent = `${results.colorDistribution}%`;
+        this.compressionValue.textContent = `${results.compression.toFixed(1)}%`;
+        this.edgeValue.textContent = `${results.edgeConsistency.toFixed(1)}%`;
+        this.noiseValue.textContent = `${results.noisePatterns.toFixed(1)}%`;
+        this.colorValue.textContent = `${results.colorDistribution.toFixed(1)}%`;
     }
 
     resetInterface() {
@@ -1195,30 +1087,30 @@ class DeepFakeDetector {
 Analysis Date: ${date}
 File Name: ${results.filename}
 File Size: ${results.filesize}
+Model Version: ${results.modelVersion}
 
-AUTHENTICITY SCORE: ${results.authenticityScore}%
+AUTHENTICITY SCORE: ${results.authenticityScore.toFixed(2)}%
 
-VERDICT: ${results.authenticityScore >= 70 ? 'LIKELY AUTHENTIC' : 
-          results.authenticityScore >= 40 ? 'SUSPICIOUS' : 'LIKELY AI-GENERATED'}
+VERDICT: ${results.verdict.title.toUpperCase()}
 
 TECHNICAL ANALYSIS:
-- Compression Artifacts: ${results.compression}%
-- Edge Consistency: ${results.edgeConsistency}%
-- Noise Patterns: ${results.noisePatterns}%
-- Color Distribution: ${results.colorDistribution}%
+- Compression Artifacts: ${results.compression.toFixed(2)}%
+- Edge Consistency: ${results.edgeConsistency.toFixed(2)}%
+- Noise Patterns: ${results.noisePatterns.toFixed(2)}%
+- Color Distribution: ${results.colorDistribution.toFixed(2)}%
+- Frequency Analysis: ${results.frequencyAnalysis.toFixed(2)}%
 
 INTERPRETATION:
-${results.authenticityScore >= 70 ? 
-  'This image shows strong indicators of being genuine with natural characteristics typical of real photographs.' :
-  results.authenticityScore >= 40 ?
-  'This image shows mixed indicators. Some characteristics suggest authenticity while others raise concerns.' :
-  'This image shows strong indicators of artificial generation or heavy manipulation.'}
+${results.verdict.description}
+
+Confidence Level: ${results.verdict.confidence.toUpperCase()}
 
 DISCLAIMER:
-This analysis is based on computational algorithms and should not be considered definitive proof. 
-Human expert review is recommended for critical applications.
+This analysis is based on computational algorithms and should not be 
+considered definitive proof. Human expert review is recommended for 
+critical applications.
 
-Generated by DeepFake Shield v1.0
+Generated by DeepFake Shield v${results.modelVersion}
 =============================================`;
     }
 
@@ -1228,10 +1120,6 @@ Generated by DeepFake Shield v1.0
         const sizes = ['Bytes', 'KB', 'MB', 'GB'];
         const i = Math.floor(Math.log(bytes) / Math.log(k));
         return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    }
-
-    delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
     }
 
     handleNavigation(e) {
