@@ -136,14 +136,17 @@ class DeepFakeDetector:
             boundary_ratio = avg_boundary / (avg_artifact + 1)
             
             # Higher score = more authentic
-            if boundary_ratio > 2.0:
-                score = 75 + min(25, boundary_ratio * 5)
-            elif boundary_ratio > 1.0:
-                score = 50 + (boundary_ratio - 1) * 25
+            # Adjusted thresholds to be less aggressive
+            if boundary_ratio > 1.5:
+                score = 70 + min(30, boundary_ratio * 8)
+            elif boundary_ratio > 0.8:
+                score = 55 + (boundary_ratio - 0.8) * 20
+            elif boundary_ratio > 0.4:
+                score = 40 + (boundary_ratio - 0.4) * 35
             else:
-                score = 25 + boundary_ratio * 25
+                score = 30 + boundary_ratio * 25
         else:
-            score = 50
+            score = 60  # Default to neutral-positive if can't determine
         
         return min(100, max(0, score))
     
@@ -222,18 +225,24 @@ class DeepFakeDetector:
         # Score based on noise characteristics
         # Real photos: higher noise std, higher variance of variance
         # AI images: very low noise or overly uniform noise
-        if noise_std < 2:
-            score = 20  # Too clean, likely AI
-        elif noise_std > 15:
-            score = 85 + min(15, noise_std - 15)  # Natural sensor noise
-        else:
-            # Check noise uniformity
-            if noise_cv > 1.5:
-                score = 70 + min(20, noise_cv * 5)  # Varied noise (real)
-            elif noise_cv > 0.8:
-                score = 50 + (noise_cv - 0.8) * 30
+        if noise_std < 1.5:
+            score = 25  # Too clean, likely AI
+        elif noise_std > 12:
+            score = 80 + min(20, (noise_std - 12) * 2)  # Natural sensor noise
+        elif noise_std > 5:
+            # Moderate noise - check uniformity
+            if noise_cv > 1.2:
+                score = 75 + min(20, (noise_cv - 1.2) * 15)  # Varied noise (real)
+            elif noise_cv > 0.6:
+                score = 55 + (noise_cv - 0.6) * 30
             else:
-                score = 30 + noise_cv * 25  # Uniform noise (AI)
+                score = 40 + noise_cv * 25  # Somewhat uniform
+        else:
+            # Low noise - check if it's natural or artificial
+            if noise_cv > 0.8:
+                score = 60 + noise_cv * 20  # Low but varied (could be real)
+            else:
+                score = 35 + noise_cv * 30  # Low and uniform (AI)
         
         return min(100, max(0, score))
     
@@ -268,10 +277,13 @@ class DeepFakeDetector:
         entropy_score = (hue_entropy + lum_entropy) / 2
         variation_score = min(100, (sat_std / 255) * 200)
         
-        # Combine scores
-        score = (entropy_score * 10 + variation_score) / 2
+        # Combine scores with more weight on entropy
+        score = (entropy_score * 12 + variation_score) / 2
         
-        return min(100, max(20, score))
+        # Color distribution alone is not a strong indicator, be generous
+        score = max(50, score)  # Minimum 50% for color
+        
+        return min(100, max(50, score))
     
     def _analyze_frequency_domain(self, img_array):
         """
@@ -351,12 +363,13 @@ class DeepFakeDetector:
         Calculate weighted authenticity score from individual metrics
         Higher score = more likely to be authentic
         """
+        # Adjusted weights - noise and frequency are strongest indicators
         weights = {
-            'compression': 0.20,
-            'edge': 0.25,
-            'noise': 0.25,
-            'color': 0.15,
-            'frequency': 0.15
+            'compression': 0.15,
+            'edge': 0.20,
+            'noise': 0.35,  # Increased - strongest indicator
+            'color': 0.10,
+            'frequency': 0.20  # Increased - strong indicator
         }
         
         score = (
@@ -367,22 +380,38 @@ class DeepFakeDetector:
             frequency * weights['frequency']
         )
         
-        return score
+        # Apply curve adjustment to make scoring less aggressive
+        # This gives benefit of doubt to borderline cases
+        if score >= 60:
+            # Boost authentic-leaning scores
+            score = 60 + (score - 60) * 1.2
+        elif score <= 35:
+            # Keep clearly fake scores low
+            score = score * 0.9
+        
+        return min(100, max(0, score))
     
     def _generate_verdict(self, authenticity_score):
         """Generate human-readable verdict"""
-        if authenticity_score >= 70:
+        if authenticity_score >= 65:
             return {
                 'classification': 'authentic',
                 'title': 'Likely Authentic',
                 'description': 'This image shows strong indicators of being genuine with natural characteristics typical of real photographs.',
                 'confidence': 'high'
             }
-        elif authenticity_score >= 40:
+        elif authenticity_score >= 50:
+            return {
+                'classification': 'suspicious',
+                'title': 'Possibly Authentic',
+                'description': 'This image shows mostly authentic characteristics with some minor inconsistencies. Likely a real photo with compression or editing.',
+                'confidence': 'medium'
+            }
+        elif authenticity_score >= 35:
             return {
                 'classification': 'suspicious',
                 'title': 'Suspicious',
-                'description': 'This image shows mixed indicators. Some characteristics suggest authenticity while others raise concerns.',
+                'description': 'This image shows mixed indicators. Some characteristics suggest authenticity while others raise concerns about manipulation.',
                 'confidence': 'medium'
             }
         else:
