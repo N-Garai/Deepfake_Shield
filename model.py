@@ -361,47 +361,61 @@ class DeepFakeDetector:
             print(f"  [FREQ DEBUG] low={low_ratio:.3f}, vhigh={very_high_ratio:.4f}, entropy={freq_entropy:.3f}")
             
             # AI images tend to have:
-            # 1. Too much low frequency (overly smooth) - low_ratio > 0.85
-            # 2. Too little high frequency (lack of sensor noise) - very_high_ratio < 0.02
-            # 3. Lower frequency entropy (less varied)
+            # 1. High low frequency (overly smooth) - low_ratio > 0.72
+            # 2. Low frequency entropy (less varied) - entropy < 1.3
+            # 3. Moderate but insufficient high frequency
             
-            # Real photos typically: low_ratio 0.55-0.80, very_high_ratio > 0.025
+            # Real photos typically: low_ratio 0.50-0.70, entropy > 1.4, very_high_ratio > 0.030
+            
+            # Check for AI signature: high low-freq + low entropy
+            ai_signature = (low_ratio > 0.72 and freq_entropy < 1.3)
+            if ai_signature:
+                print(f"  [FREQ] AI SIGNATURE DETECTED! Applying penalty...")
+                base_score = 25  # Start very low for AI signature
+            else:
+                base_score = 50
             if low_ratio > 0.90:
-                score = 5  # Extremely smooth - definitely AI
+                score = base_score * 0.2  # Extremely smooth - definitely AI
             elif low_ratio > 0.85:
-                score = 15 + (0.90 - low_ratio) * 200  # Very smooth - AI
-            elif low_ratio > 0.80:
-                # Check high freq to confirm
-                if very_high_ratio < 0.015:
-                    score = 25  # Smooth with no noise - AI
+                score = base_score * 0.4  # Very smooth - AI
+            elif low_ratio > 0.78:
+                # Suspicious range - check entropy
+                if freq_entropy < 1.2:
+                    score = base_score * 0.5  # High low-freq + low entropy = AI
                 else:
-                    score = 35 + very_high_ratio * 500
+                    score = 40 + (0.90 - low_ratio) * 150
+            elif low_ratio > 0.70:
+                # Borderline - check high freq and entropy carefully
+                if freq_entropy < 1.3:
+                    score = 35 + (freq_entropy - 0.8) * 30  # Low entropy suspect
+                elif very_high_ratio > 0.035:
+                    score = 70 + (very_high_ratio - 0.035) * 500  # Good high freq
+                else:
+                    score = 50 + very_high_ratio * 600
             elif low_ratio < 0.50:
                 score = 95  # Excellent detail distribution - real
             elif low_ratio < 0.65:
                 # Good balance - check high freq
                 if very_high_ratio > 0.04:
                     score = 85 + min(15, very_high_ratio * 250)  # Strong high freq - real
-                elif very_high_ratio > 0.025:
-                    score = 70 + (very_high_ratio - 0.025) * 1000
+                elif very_high_ratio > 0.030:
+                    score = 75 + (very_high_ratio - 0.030) * 1000
                 else:
-                    score = 50 + very_high_ratio * 800
+                    score = 55 + very_high_ratio * 700
             else:
-                # Moderate low freq (0.65-0.80) - check high frequency carefully
-                if very_high_ratio > 0.035:
-                    score = 75 + min(20, very_high_ratio * 400)  # Good high freq
-                elif very_high_ratio > 0.020:
-                    score = 55 + (very_high_ratio - 0.020) * 1300
-                elif very_high_ratio > 0.010:
-                    score = 35 + (very_high_ratio - 0.010) * 2000
+                # 0.65-0.70 range
+                if very_high_ratio > 0.038:
+                    score = 80 + min(15, very_high_ratio * 300)
                 else:
-                    score = 15 + very_high_ratio * 2000  # Almost no high freq - AI
+                    score = 60 + very_high_ratio * 500
             
-            # Apply entropy adjustment (lower entropy = more AI-like)
-            if freq_entropy < 1.2:
-                score = score * 0.75  # Penalize low entropy
+            # Final entropy adjustment
+            if freq_entropy < 1.0:
+                score = score * 0.45  # Severely penalize very low entropy
+            elif freq_entropy < 1.25:
+                score = score * 0.60  # Strong penalty for low entropy
             elif freq_entropy < 1.5:
-                score = score * 0.9
+                score = score * 0.80
         else:
             score = 50
         
@@ -419,13 +433,13 @@ class DeepFakeDetector:
         Calculate weighted authenticity score from individual metrics
         Higher score = more likely to be authentic
         """
-        # Adjusted weights - noise and frequency are strongest indicators
+        # Adjusted weights - frequency domain is most reliable for modern AI detection
         weights = {
-            'compression': 0.15,
-            'edge': 0.20,
-            'noise': 0.35,  # Increased - strongest indicator
+            'compression': 0.10,
+            'edge': 0.15,
+            'noise': 0.25,
             'color': 0.10,
-            'frequency': 0.20  # Increased - strong indicator
+            'frequency': 0.40  # Highest weight - strongest indicator for modern AI
         }
         
         score = (
@@ -436,14 +450,17 @@ class DeepFakeDetector:
             frequency * weights['frequency']
         )
         
-        # Apply curve adjustment to make scoring less aggressive
-        # This gives benefit of doubt to borderline cases
-        if score >= 60:
-            # Boost authentic-leaning scores
-            score = 60 + (score - 60) * 1.2
-        elif score <= 35:
-            # Keep clearly fake scores low
-            score = score * 0.9
+        # Apply curve adjustment
+        # Be more conservative - don't boost scores as much
+        if score >= 70:
+            # Slightly boost clearly authentic scores
+            score = 70 + (score - 70) * 1.1
+        elif score >= 55:
+            # Neutral zone - no adjustment
+            score = score
+        elif score <= 40:
+            # Emphasize low scores for AI detection
+            score = score * 0.85
         
         return min(100, max(0, score))
     
