@@ -1,8 +1,3 @@
-"""
-DeepFake Detection Model v3.0.0
-COMPLETELY REWRITTEN - Proper algorithms that distinguish real vs AI images
-"""
-
 import numpy as np
 from PIL import Image
 import base64
@@ -15,14 +10,14 @@ logger = logging.getLogger(__name__)
 
 class DeepFakeDetector:
     def __init__(self):
-        self.model_version = "3.0.0"
-        # CRITICAL: These weights are now properly tuned
+        self.model_version = "5.0.0"
+        # PERFECTLY BALANCED WEIGHTS
         self.weights = {
-            "compression": 0.12,
-            "edge": 0.13,
-            "noise": 0.25,
-            "color": 0.08,
-            "frequency": 0.42,  # Most important for AI detection
+            "compression": 0.12,    # 12%
+            "edge": 0.12,           # 12%
+            "noise": 0.24,          # 24% - Important but not overpowering
+            "color": 0.12,          # 12%
+            "frequency": 0.40,      # 40% - Important but not aggressive
         }
 
     def analyze_image(self, image_input):
@@ -30,16 +25,19 @@ class DeepFakeDetector:
         try:
             img = self._prepare_image(image_input)
 
-            # Run ALL metrics
-            compression = self._compression_score(img)
-            edge = self._edge_score(img)
-            noise = self._noise_score(img)
-            color = self._color_score(img)
-            freq = self._frequency_score(img)
+            # Run ALL metrics with balanced algorithms
+            compression = self._compression_score_v5(img)
+            edge = self._edge_score_v5(img)
+            noise = self._noise_score_v5(img)
+            color = self._color_score_v5(img)
+            freq = self._frequency_score_v5(img)
 
-            logger.info(f"Compression: {compression:.1f} | Edge: {edge:.1f} | Noise: {noise:.1f} | Color: {color:.1f} | Freq: {freq:.1f}")
+            logger.info(
+                f"Scores - Comp:{compression:.1f} Edge:{edge:.1f} "
+                f"Noise:{noise:.1f} Color:{color:.1f} Freq:{freq:.1f}"
+            )
 
-            authenticity = self._combine_scores(compression, edge, noise, color, freq)
+            authenticity = self._combine_scores_v5(compression, edge, noise, color, freq)
             verdict = self._verdict(authenticity)
 
             return {
@@ -59,7 +57,7 @@ class DeepFakeDetector:
             raise
 
     def _prepare_image(self, image_input):
-        """Convert to RGB 256x256 numpy array"""
+        """Convert to RGB 512x512 numpy array"""
         if isinstance(image_input, str):
             if "," in image_input:
                 image_input = image_input.split(",", 1)[1]
@@ -76,309 +74,340 @@ class DeepFakeDetector:
             raise ValueError("Unsupported image type")
 
         img = img.convert("RGB")
-        img = img.resize((256, 256), Image.BILINEAR)
+        img = img.resize((512, 512), Image.LANCZOS)
         return np.array(img)
 
-    def _compression_score(self, arr):
+    # ========== v5.0 ALGORITHMS - PERFECTLY BALANCED ==========
+
+    def _compression_score_v5(self, arr):
         """
-        REWRITTEN: Check JPEG block consistency
-        Real photos: Natural variation in blocks
-        AI images: Overly uniform blocks
+        BALANCED compression artifact detection
+        Real: Natural variation with visible block boundaries
+        AI: Unnaturally smooth with subtle/missing boundaries
         """
         gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY).astype(np.float32)
 
         block_size = 8
-        block_vars = []
-        inter_block_diffs = []
+        block_variances = []
+        boundary_diffs = []
 
         for y in range(0, gray.shape[0] - block_size, block_size):
             for x in range(0, gray.shape[1] - block_size, block_size):
                 block = gray[y:y+block_size, x:x+block_size]
-                block_vars.append(np.var(block))
+                bv = np.var(block)
+                block_variances.append(bv)
 
-                # Check boundary with right block
-                if x + 2*block_size <= gray.shape[1]:
-                    right = gray[y:y+block_size, x+block_size:x+2*block_size]
-                    diff = np.mean(np.abs(block[:,-1] - right[:,0]))
-                    inter_block_diffs.append(diff)
+                # Right boundary difference
+                if x + block_size * 2 <= gray.shape[1]:
+                    right = gray[y:y+block_size, x+block_size:x+block_size*2]
+                    bd = np.abs(np.mean(block[:,-1]) - np.mean(right[:,0]))
+                    boundary_diffs.append(bd)
 
-        if not block_vars or not inter_block_diffs:
+        if not block_variances or not boundary_diffs:
             return 50.0
 
-        bv = np.array(block_vars)
-        bd = np.array(inter_block_diffs)
+        bv_array = np.array(block_variances)
+        bd_array = np.array(boundary_diffs)
 
-        # Real: high variance within blocks + high discontinuity between
-        # AI: very low variance + low discontinuity (smooth, uniform)
+        within_var = np.var(bv_array)
+        mean_var = np.mean(bv_array)
+        mean_boundary = np.mean(bd_array)
+        std_boundary = np.std(bd_array)
 
-        within_var = np.mean(bv)
-        between_diff = np.mean(bd)
+        if mean_var > 0:
+            uniformity = within_var / mean_var
+        else:
+            uniformity = 0
 
-        # Normalize metrics
-        within_score = np.clip(np.log1p(within_var) / 3.0, 0, 1)  # Log scale
-        between_score = np.clip(between_diff / 20.0, 0, 1)
-
-        # Combination: both should be high for real images
-        score = (within_score * 0.4 + between_score * 0.6) * 100
-
-        # AI detection: both low -> low score
-        if within_var < 5 and between_diff < 3:
-            score = score * 0.3
+        # BALANCED SCORING - not too aggressive
+        if uniformity > 0.4 and mean_boundary > 2.5:
+            score = 82  # Clear real
+        elif uniformity > 0.25 and mean_boundary > 1.8:
+            score = 70
+        elif uniformity > 0.15 and mean_boundary > 1.0:
+            score = 58
+        elif uniformity > 0.08 and mean_boundary > 0.7:
+            score = 48
+        elif mean_var < 1.5 and std_boundary < 1.5:  # Very smooth
+            score = 28
+        elif uniformity < 0.05 and mean_boundary < 1.2:
+            score = 35
+        else:
+            score = 50
 
         return float(np.clip(score, 0, 100))
 
-    def _edge_score(self, arr):
+    def _edge_score_v5(self, arr):
         """
-        REWRITTEN: Edge sharpness and variation
-        Real photos: Natural edge variance
-        AI images: Overly smooth, consistent edges
+        BALANCED edge detection - multi-scale
+        Real: Varied edges with natural complexity
+        AI: More uniform edges but not always suspicious
         """
         gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY).astype(np.float32)
 
-        # Multiple edge detection scales
-        edges_3 = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=3)
-        edges_5 = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=5)
+        edge_scores = []
 
-        mag_3 = np.sqrt(edges_3**2 + cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=3)**2)
-        mag_5 = np.sqrt(edges_5**2 + cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=5)**2)
+        for ksize in [3, 5, 7]:
+            sx = cv2.Sobel(gray, cv2.CV_32F, 1, 0, ksize=ksize)
+            sy = cv2.Sobel(gray, cv2.CV_32F, 0, 1, ksize=ksize)
+            mag = np.sqrt(sx**2 + sy**2 + 1e-6)
 
-        # Get top 10% edges
-        thresh_3 = np.percentile(mag_3, 90)
-        thresh_5 = np.percentile(mag_5, 90)
+            threshold = np.percentile(mag, 80)
+            strong_edges = mag[mag > threshold]
 
-        strong_3 = mag_3[mag_3 > thresh_3]
-        strong_5 = mag_5[mag_5 > thresh_5]
+            if len(strong_edges) > 50:
+                mean_edge = np.mean(strong_edges)
+                var_edge = np.var(strong_edges)
 
-        if len(strong_3) < 10 or len(strong_5) < 10:
-            return 40.0
+                if mean_edge > 0:
+                    ratio = var_edge / (mean_edge**2)
 
-        # Calculate variance-to-mean ratio (higher = more varied = more natural)
-        ratio_3 = np.var(strong_3) / (np.mean(strong_3) + 1e-6)
-        ratio_5 = np.var(strong_5) / (np.mean(strong_5) + 1e-6)
+                    # BALANCED - not overly strict
+                    if ratio > 1.2:
+                        edge_scores.append(85)
+                    elif ratio > 0.8:
+                        edge_scores.append(72)
+                    elif ratio > 0.5:
+                        edge_scores.append(60)
+                    elif ratio > 0.25:
+                        edge_scores.append(45)
+                    elif ratio > 0.1:
+                        edge_scores.append(32)
+                    else:
+                        edge_scores.append(20)
 
-        avg_ratio = (ratio_3 + ratio_5) / 2
-
-        # Real: ratio typically 8-30+
-        # AI: ratio typically 0.5-5 (too consistent)
-
-        if avg_ratio > 25:
-            score = 95  # Highly variable edges
-        elif avg_ratio > 15:
-            score = 80 + (avg_ratio - 15) * 1.5
-        elif avg_ratio > 8:
-            score = 60 + (avg_ratio - 8) * 3
-        elif avg_ratio > 4:
-            score = 35 + (avg_ratio - 4) * 6.25
-        elif avg_ratio > 2:
-            score = 20 + (avg_ratio - 2) * 7.5
+        if edge_scores:
+            score = np.mean(edge_scores)
         else:
-            score = 10  # Very consistent edges = AI
+            score = 50
 
         return float(np.clip(score, 0, 100))
 
-    def _noise_score(self, arr):
+    def _noise_score_v5(self, arr):
         """
-        REWRITTEN: Noise patterns and uniformity
-        Real photos: Higher noise, varied across image
-        AI images: Very low noise or extremely uniform
+        BALANCED noise analysis - key differentiator but fair
+        Real: Significant natural noise with variation
+        AI: Lower noise levels but not always disqualifying
         """
         gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY).astype(np.float32)
 
-        # Extract high-frequency noise
-        gaussian = cv2.GaussianBlur(gray, (9, 9), 1.5)
-        noise = np.abs(gray - gaussian)
+        noise_levels = []
+        uniformity_scores = []
+        laplace_scores = []
 
-        noise_std = np.std(noise)
+        for blur_sigma in [0.5, 1.0, 1.5]:
+            blurred = cv2.GaussianBlur(gray, (15, 15), blur_sigma)
+            noise = np.abs(gray - blurred)
 
-        # Local variance analysis
-        patch_size = 16
-        local_vars = []
-        for y in range(0, gray.shape[0] - patch_size, patch_size):
-            for x in range(0, gray.shape[1] - patch_size, patch_size):
-                patch_noise = noise[y:y+patch_size, x:x+patch_size]
-                local_vars.append(np.var(patch_noise))
+            noise_std = np.std(noise)
+            noise_levels.append(noise_std)
 
-        if not local_vars:
-            return 50.0
+            # Laplacian for texture details
+            laplacian = cv2.Laplacian(gray, cv2.CV_32F)
+            laplace_std = np.std(laplacian)
+            laplace_scores.append(laplace_std)
 
-        local_vars = np.array(local_vars)
-        var_of_vars = np.std(local_vars)  # How much noise varies
-        mean_var = np.mean(local_vars)
+            # Local noise variance (uniformity)
+            patch_vars = []
+            for y in range(0, gray.shape[0]-16, 32):
+                for x in range(0, gray.shape[1]-16, 32):
+                    patch_noise = noise[y:y+16, x:x+16]
+                    patch_vars.append(np.var(patch_noise))
 
-        # Coefficient of variation for noise distribution
-        cv = var_of_vars / (mean_var + 0.01)
+            if patch_vars:
+                pv_array = np.array(patch_vars)
+                uniformity = np.std(pv_array) / (np.mean(pv_array) + 0.1)
+                uniformity_scores.append(uniformity)
 
-        # Score components
-        # 1. Noise level (real photos have significant noise)
-        if noise_std < 1.0:
-            noise_level_score = 5  # Too clean = AI
-        elif noise_std < 2.0:
-            noise_level_score = 15
-        elif noise_std < 4.0:
-            noise_level_score = 35
-        elif noise_std < 8.0:
-            noise_level_score = 60
-        elif noise_std < 15.0:
-            noise_level_score = 80
+        avg_noise = np.mean(noise_levels)
+        avg_uniformity = np.mean(uniformity_scores) if uniformity_scores else 0
+        avg_laplace = np.mean(laplace_scores)
+
+        logger.info(f"Noise - Avg:{avg_noise:.2f} Uniformity:{avg_uniformity:.2f} Laplace:{avg_laplace:.2f}")
+
+        # BALANCED SCORING
+        # Real photos
+        if avg_noise > 6.0 and avg_uniformity > 0.7 and avg_laplace > 8:
+            noise_score = 88
+        elif avg_noise > 4.5 and avg_uniformity > 0.5 and avg_laplace > 6:
+            noise_score = 78
+        elif avg_noise > 3.0 and avg_uniformity > 0.3 and avg_laplace > 4:
+            noise_score = 68
+        elif avg_noise > 1.8 and avg_uniformity > 0.15 and avg_laplace > 2:
+            noise_score = 58
+        # AI/Synthetic
+        elif avg_noise < 0.5 and avg_laplace < 2:
+            noise_score = 18  # Very clean = likely AI
+        elif avg_noise < 1.0 and avg_uniformity < 0.15:
+            noise_score = 28
+        elif avg_noise < 1.5 and avg_uniformity < 0.25:
+            noise_score = 38
+        elif avg_noise < 2.5 and avg_uniformity < 0.35:
+            noise_score = 48
         else:
-            noise_level_score = 95
+            noise_score = 55
 
-        # 2. Noise uniformity (real: varied, AI: uniform)
-        if cv < 0.3:
-            uniformity_score = 15  # Too uniform = AI
-        elif cv < 0.6:
-            uniformity_score = 35
-        elif cv < 1.0:
-            uniformity_score = 55
-        elif cv < 1.5:
-            uniformity_score = 75
-        else:
-            uniformity_score = 90
+        return float(np.clip(noise_score, 0, 100))
 
-        # Combine
-        score = noise_level_score * 0.55 + uniformity_score * 0.45
-
-        return float(np.clip(score, 0, 100))
-
-    def _color_score(self, arr):
+    def _color_score_v5(self, arr):
         """
-        REWRITTEN: Color distribution properties
-        Real photos: Complex, varied color distributions
-        AI images: Simpler, more concentrated colors
+        BALANCED color analysis
+        Real: Complex, varied color patterns with high entropy
+        AI: More uniform colors but not always suspicious
         """
         if arr.ndim != 3:
             return 50.0
 
         hsv = cv2.cvtColor(arr, cv2.COLOR_RGB2HSV)
+        lab = cv2.cvtColor(arr, cv2.COLOR_RGB2LAB)
 
-        h = hsv[:,:,0].flatten()
-        s = hsv[:,:,1].flatten()
-        v = hsv[:,:,2].flatten()
+        h = hsv[:,:,0]
+        s = hsv[:,:,1]
+        v = hsv[:,:,2]
 
-        # Calculate entropies
-        h_hist, _ = np.histogram(h, bins=32, range=(0, 180))
-        s_hist, _ = np.histogram(s, bins=32, range=(0, 256))
-        v_hist, _ = np.histogram(v, bins=32, range=(0, 256))
+        l = lab[:,:,0]
+        a = lab[:,:,1]
+        b = lab[:,:,2]
 
-        h_ent = self._entropy(h_hist)
-        s_ent = self._entropy(s_hist)
-        v_ent = self._entropy(v_hist)
+        h_std = np.std(h)
+        s_std = np.std(s)
+        v_std = np.std(v)
 
-        # Real photos: high entropy (complex colors)
-        # AI: lower entropy (simpler colors)
+        l_std = np.std(l)
+        a_std = np.std(a)
+        b_std = np.std(b)
 
-        avg_ent = (h_ent + s_ent + v_ent) / 3
+        # Histograms
+        h_hist = np.histogram(h, bins=32)[0]
+        s_hist = np.histogram(s, bins=32)[0]
 
-        if avg_ent > 4.0:
-            score = 90
-        elif avg_ent > 3.5:
-            score = 75
-        elif avg_ent > 3.0:
-            score = 60
-        elif avg_ent > 2.5:
-            score = 45
-        elif avg_ent > 2.0:
-            score = 30
+        h_entropy = self._entropy(h_hist)
+        s_entropy = self._entropy(s_hist)
+
+        complexity = (h_std + s_std + v_std + a_std + b_std) / 5
+        entropy = (h_entropy + s_entropy) / 2
+
+        # BALANCED scoring
+        if complexity > 50 and entropy > 3.2:
+            color_score = 80
+        elif complexity > 40 and entropy > 2.8:
+            color_score = 70
+        elif complexity > 30 and entropy > 2.3:
+            color_score = 60
+        elif complexity > 20 and entropy > 1.8:
+            color_score = 50
+        elif complexity > 15 and entropy > 1.3:
+            color_score = 40
         else:
-            score = 15
+            color_score = 30
 
-        # Also check saturation variation
-        sat_std = np.std(s)
-        if sat_std > 100:
-            score += 15
-        elif sat_std > 60:
-            score += 5
+        return float(np.clip(color_score, 0, 100))
 
-        return float(np.clip(score, 0, 100))
-
-    def _frequency_score(self, arr):
+    def _frequency_score_v5(self, arr):
         """
-        REWRITTEN: DCT frequency analysis - MOST IMPORTANT FOR AI DETECTION
-        Real photos: Balanced frequency distribution, strong high frequencies
-        AI images: Dominated by low frequencies (smooth), weak high frequencies
+        BALANCED frequency analysis - sophisticated but not aggressive
+        Real: More natural frequency distribution
+        AI: Tends toward low-frequency dominance
         """
         gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY).astype(np.float32)
 
-        # Apply DCT
+        h, w = gray.shape
+        size = min(h, w)
+        gray = gray[:size, :size]
+
+        # DCT analysis
         dct_result = dct(dct(gray.T, norm='ortho').T, norm='ortho')
         dct_mag = np.abs(dct_result)
 
-        # Divide into frequency bands (0-256 size)
-        ultra_low = dct_mag[0:32, 0:32]      # Ultra-low freq
-        low = dct_mag[32:96, 32:96]           # Low freq
-        mid = dct_mag[96:160, 96:160]         # Mid freq
-        high = dct_mag[160:224, 160:224]      # High freq
-        ultra_high = dct_mag[224:256, 224:256] # Ultra-high freq
+        total_size = dct_mag.shape[0]
 
-        ul_energy = np.sum(ultra_low)
-        l_energy = np.sum(low)
-        m_energy = np.sum(mid)
-        h_energy = np.sum(high)
-        uh_energy = np.sum(ultra_high)
+        # Better frequency band definitions
+        q1 = total_size // 5
+        q2 = total_size // 3
+        q3 = (total_size * 2) // 3
 
-        total = ul_energy + l_energy + m_energy + h_energy + uh_energy + 1e-10
+        dc_band = dct_mag[0:q1, 0:q1]
+        low_band = dct_mag[0:q2, 0:q2]
+        mid_band = dct_mag[q1:q3, q1:q3]
+        high_band = dct_mag[q2:, q2:]
 
-        ul_ratio = ul_energy / total
-        l_ratio = l_energy / total
-        m_ratio = m_energy / total
-        h_ratio = h_energy / total
-        uh_ratio = uh_energy / total
+        dc_energy = np.sum(dc_band)
+        low_energy = np.sum(low_band) - dc_energy
+        mid_energy = np.sum(mid_band)
+        high_energy = np.sum(high_band)
 
-        # Key indicators
-        low_freq_domination = (ul_ratio + l_ratio)  # Real: 0.4-0.65, AI: >0.75
-        high_freq_content = (h_ratio + uh_ratio)    # Real: >0.25, AI: <0.15
+        total_energy = dc_energy + low_energy + mid_energy + high_energy + 1e-10
 
-        # Entropy of frequency distribution
-        freqs = np.array([ul_ratio, l_ratio, m_ratio, h_ratio, uh_ratio])
-        freq_ent = self._entropy(freqs * 1000)  # Scale for histogram
+        dc_ratio = dc_energy / total_energy
+        low_ratio = low_energy / total_energy
+        mid_ratio = mid_energy / total_energy
+        high_ratio = high_energy / total_energy
 
-        logger.info(f"Freq: low_dom={low_freq_domination:.3f} high_content={high_freq_content:.3f} entropy={freq_ent:.2f}")
+        low_freq_total = dc_ratio + low_ratio
+        high_freq_total = mid_ratio + high_ratio
 
-        # Scoring logic
-        score = 50  # Base
+        logger.info(f"Freq v5 - Low:{low_freq_total:.3f} High:{high_freq_total:.3f} DC:{dc_ratio:.3f}")
 
-        # 1. High frequency content (most important)
-        if high_freq_content > 0.30:
-            score += 35
-        elif high_freq_content > 0.25:
-            score += 28
-        elif high_freq_content > 0.20:
-            score += 15
-        elif high_freq_content > 0.15:
-            score += 5
-        elif high_freq_content > 0.10:
-            score -= 10
-        else:
-            score -= 25
+        # Entropy
+        freqs = np.array([dc_ratio, low_ratio, mid_ratio, high_ratio])
+        freq_entropy = self._entropy(freqs * 1000)
 
-        # 2. Low frequency domination (penalize if too high)
-        if low_freq_domination > 0.80:
-            score -= 30
-        elif low_freq_domination > 0.75:
-            score -= 20
-        elif low_freq_domination > 0.70:
-            score -= 10
-        elif low_freq_domination < 0.50:
-            score += 15
+        # BALANCED DETECTION - not overly strict
+        score = 50
 
-        # 3. Mid frequency balance
-        if m_ratio > 0.20:
-            score += 10
+        # Clear AI signatures (must be VERY clear)
+        if low_freq_total > 0.78 and high_freq_total < 0.15 and dc_ratio < 0.15:
+            logger.info("Strong AI signature detected")
+            score = 18
 
-        # 4. Frequency entropy (more distributed = more natural)
-        if freq_ent > 1.3:
-            score += 15
-        elif freq_ent > 1.1:
-            score += 5
-        elif freq_ent < 0.8:
-            score -= 15
+        # Clear real signatures (more permissive)
+        elif low_freq_total < 0.62 and high_freq_total > 0.28:
+            logger.info("Strong real signature detected")
+            score = 80
+
+        # Gradual scoring with more nuance
+        elif low_freq_total > 0.72:
+            if high_freq_total < 0.18:
+                score = 25
+            elif high_freq_total < 0.22:
+                score = 35
+            else:
+                score = 45
+
+        elif low_freq_total > 0.65:
+            if high_freq_total > 0.25:
+                score = 60
+            else:
+                score = 50
+
+        elif low_freq_total < 0.58:
+            if high_freq_total > 0.32:
+                score = 85
+            else:
+                score = 75
+
+        else:  # 0.58 - 0.65
+            if high_freq_total > 0.28:
+                score = 72
+            else:
+                score = 60
+
+        # Entropy adjustment (more subtle)
+        if freq_entropy < 0.9:
+            score = score * 0.9
+        elif freq_entropy > 1.7:
+            score = score * 1.05
 
         return float(np.clip(score, 0, 100))
 
-    def _combine_scores(self, c, e, n, col, f):
-        """Weighted combination with proper balance"""
+    def _combine_scores_v5(self, c, e, n, col, f):
+        """
+        BALANCED weighted combination
+        Fair to both real and AI detection
+        """
         w = self.weights
-        raw = (
+
+        raw_score = (
             c * w['compression'] +
             e * w['edge'] +
             n * w['noise'] +
@@ -386,42 +415,50 @@ class DeepFakeDetector:
             f * w['frequency']
         )
 
-        # Push extremes apart (polarize)
-        if raw < 35:
-            raw = raw * 0.9  # Make low scores lower
-        elif raw > 65:
-            raw = 65 + (raw - 65) * 1.1  # Make high scores higher
+        logger.info(f"Raw weighted score: {raw_score:.2f}")
 
-        return float(np.clip(raw, 0, 100))
+        # Gentle polarization - not aggressive
+        if raw_score < 25:
+            final_score = raw_score * 0.95
+        elif raw_score < 40:
+            final_score = raw_score * 0.98
+        elif raw_score > 80:
+            final_score = 80 + (raw_score - 80) * 1.05
+        elif raw_score > 70:
+            final_score = 70 + (raw_score - 70) * 1.03
+        else:
+            final_score = raw_score
+
+        return float(np.clip(final_score, 0, 100))
 
     def _verdict(self, score):
-        """Generate verdict based on score"""
+        """Generate verdict - FAIR THRESHOLDS"""
         if score >= 72:
             return {
                 'classification': 'authentic',
                 'title': 'Likely Authentic',
-                'description': 'Image shows strong characteristics of a genuine photograph with natural forensic patterns.',
+                'description': 'Image shows characteristics of a genuine photograph with natural forensic patterns.',
                 'confidence': 'high',
             }
-        elif score >= 58:
+        elif score >= 60:
             return {
                 'classification': 'uncertain',
                 'title': 'Uncertain/Mixed Indicators',
                 'description': 'Image shows mixed characteristics. Some patterns suggest authenticity while others raise concerns.',
                 'confidence': 'medium',
             }
-        elif score >= 40:
+        elif score >= 42:
             return {
                 'classification': 'suspicious',
-                'title': 'Suspicious - Likely Manipulated',
-                'description': 'Multiple forensic indicators suggest potential manipulation or artificial generation.',
+                'title': 'Suspicious - Possibly Manipulated',
+                'description': 'Multiple indicators suggest potential manipulation or significant editing.',
                 'confidence': 'medium',
             }
         else:
             return {
                 'classification': 'fake',
                 'title': 'Likely AI-Generated',
-                'description': 'Strong forensic evidence indicates this is an AI-generated or heavily manipulated image.',
+                'description': 'Strong forensic evidence indicates this is AI-generated or heavily manipulated.',
                 'confidence': 'high',
             }
 
