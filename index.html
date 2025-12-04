@@ -3,1208 +3,672 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DeepFake Shield - AI Image Authentication</title>
-    <link rel="stylesheet" href="styles.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <title>DeepFake Shield Pro v3</title>
+    <style>
+        :root {
+            --bg-dark: #0a0e27;
+            --bg-card: #131b3f;
+            --accent: #6b7eff;
+            --accent-light: rgba(107, 126, 255, 0.15);
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --text: #f1f5f9;
+            --text-muted: #94a3b8;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: linear-gradient(135deg, var(--bg-dark) 0%, #0f1535 100%);
+            color: var(--text);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin: 0 0 8px;
+            background: linear-gradient(135deg, var(--accent), #a8b5ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .header p {
+            color: var(--text-muted);
+            font-size: 1rem;
+            margin: 0;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        @media (max-width: 1024px) {
+            .layout { grid-template-columns: 1fr; }
+        }
+
+        .panel {
+            background: var(--bg-card);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(10px);
+        }
+
+        .panel h2 {
+            font-size: 1.3rem;
+            margin: 0 0 12px;
+            color: var(--accent);
+        }
+
+        .panel-desc {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .dropzone {
+            border: 2px dashed rgba(107, 126, 255, 0.4);
+            border-radius: 12px;
+            padding: 32px 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--accent-light);
+        }
+
+        .dropzone:hover {
+            border-color: var(--accent);
+            background: rgba(107, 126, 255, 0.25);
+        }
+
+        .dropzone.dragover {
+            border-color: var(--accent);
+            background: rgba(107, 126, 255, 0.35);
+        }
+
+        .dropzone-text {
+            font-size: 0.95rem;
+            color: var(--text-muted);
+        }
+
+        .dropzone-text strong {
+            color: var(--accent);
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .file-info {
+            margin-top: 12px;
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: none;
+        }
+
+        .file-info.show {
+            display: block;
+        }
+
+        .preview-box {
+            margin-top: 16px;
+            border-radius: 12px;
+            overflow: hidden;
+            background: rgba(0, 0, 0, 0.4);
+            display: none;
+            max-height: 300px;
+        }
+
+        .preview-box.show {
+            display: block;
+        }
+
+        .preview-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 12px;
+            margin-top: 16px;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+            box-shadow: 0 4px 12px rgba(107, 126, 255, 0.4);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            background: #5a6eee;
+            box-shadow: 0 6px 16px rgba(107, 126, 255, 0.6);
+        }
+
+        .btn-primary:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-muted);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .status-msg {
+            margin-top: 12px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .score-display {
+            background: linear-gradient(135deg, rgba(107, 126, 255, 0.1) 0%, rgba(107, 126, 255, 0.05) 100%);
+            border: 1px solid rgba(107, 126, 255, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 16px;
+        }
+
+        .score-main {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .score-circle {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            font-weight: bold;
+            background: radial-gradient(circle, rgba(107, 126, 255, 0.3) 0%, rgba(107, 126, 255, 0.1) 100%);
+            border: 3px solid var(--accent);
+        }
+
+        .score-text h3 {
+            margin: 0 0 4px;
+            font-size: 1.3rem;
+        }
+
+        .score-text p {
+            margin: 0;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .classification-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
+        .badge-authentic {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--success);
+            border: 1px solid var(--success);
+        }
+
+        .badge-uncertain {
+            background: rgba(245, 158, 11, 0.2);
+            color: var(--warning);
+            border: 1px solid var(--warning);
+        }
+
+        .badge-suspicious {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ff6b6b;
+            border: 1px solid #ff6b6b;
+        }
+
+        .badge-fake {
+            background: rgba(239, 68, 68, 0.2);
+            color: var(--danger);
+            border: 1px solid var(--danger);
+        }
+
+        .verdict-text {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 16px;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        @media (max-width: 600px) {
+            .metrics-grid { grid-template-columns: 1fr; }
+        }
+
+        .metric-item {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+            padding: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .metric-label {
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .metric-label span:last-child {
+            font-weight: 600;
+            color: var(--accent);
+        }
+
+        .metric-bar {
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .metric-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--accent), #a8b5ff);
+            border-radius: 3px;
+            width: 0%;
+            transition: width 0.4s ease;
+        }
+
+        .report-section {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 12px;
+        }
+
+        .report-section h4 {
+            margin: 0 0 8px;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            color: var(--text);
+            padding: 12px;
+            font-family: monospace;
+            font-size: 0.8rem;
+            resize: vertical;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(107, 126, 255, 0.3);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .footer {
+            text-align: center;
+            padding: 24px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+            margin-top: 32px;
+        }
+    </style>
 </head>
 <body>
-    <!-- Navigation -->
-    <nav class="navbar">
-        <div class="nav-container">
-            <div class="nav-brand">
-                <i class="fas fa-shield-alt"></i>
-                <span>DeepFake Shield</span>
-            </div>
-            <div class="nav-menu">
-                <a href="#home" class="nav-link active">Home</a>
-                <a href="#about" class="nav-link">About</a>
-                <a href="#how-it-works" class="nav-link">How It Works</a>
-                <a href="#contact" class="nav-link">Contact</a>
-            </div>
+    <div class="container">
+        <div class="header">
+            <h1>🛡️ DeepFake Shield Pro</h1>
+            <p>Advanced forensic analysis for detecting AI-generated and manipulated images</p>
         </div>
-    </nav>
 
-    <!-- Hero Section -->
-    <section id="home" class="hero">
-        <div class="hero-container">
-            <div class="hero-content">
-                <h1 class="hero-title">Detect AI-Generated Images</h1>
-                <p class="hero-subtitle">Advanced neural network analysis to identify deepfakes and AI-generated content with high accuracy</p>
-                <div class="hero-stats">
-                    <div class="stat">
-                        <span class="stat-number">95.7%</span>
-                        <span class="stat-label">Accuracy Rate</span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-number">2.3s</span>
-                        <span class="stat-label">Analysis Time</span>
-                    </div>
-                    <div class="stat">
-                        <span class="stat-number">50M+</span>
-                        <span class="stat-label">Images Analyzed</span>
+        <div class="layout">
+            <!-- Upload Panel -->
+            <div class="panel">
+                <h2>Upload Image</h2>
+                <p class="panel-desc">Drop or browse an image for instant forensic analysis</p>
+
+                <div class="dropzone" id="dropzone">
+                    <div class="dropzone-text">
+                        <strong>📁 Drop image here</strong>
+                        or click to browse
                     </div>
                 </div>
-            </div>
-        </div>
-    </section>
 
-    <!-- Main Detection Interface -->
-    <section class="detection-section">
-        <div class="container">
-            <div class="detection-container">
-                <div class="upload-area" id="uploadArea">
-                    <div class="upload-content">
-                        <i class="fas fa-cloud-upload-alt upload-icon"></i>
-                        <h3>Drop your image here or click to browse</h3>
-                        <p>Supports JPG, PNG, WebP (Max 10MB)</p>
-                        <button class="browse-btn" id="browseBtn">Browse Files</button>
-                    </div>
-                    <input type="file" id="fileInput" accept="image/*" style="display: none;">
+                <div class="file-info" id="fileInfo"></div>
+                <div class="preview-box" id="previewBox">
+                    <img id="previewImg" alt="Preview">
                 </div>
 
-                <div class="analysis-container" id="analysisContainer" style="display: none;">
-                    <div class="image-preview">
-                        <img id="previewImage" alt="Uploaded image">
-                        <div class="image-info">
-                            <span id="fileName"></span>
-                            <span id="fileSize"></span>
+                <div class="button-group">
+                    <button class="btn-primary" id="analyzeBtn" disabled>
+                        <span id="analyzeBtnText">Analyze Image</span>
+                    </button>
+                    <button class="btn-secondary" id="clearBtn">Clear</button>
+                </div>
+
+                <div class="status-msg" id="statusMsg"></div>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="panel">
+                <h2>Analysis Results</h2>
+                <p class="panel-desc">Detailed forensic breakdown and classification</p>
+
+                <div class="score-display" id="scoreDisplay" style="display: none;">
+                    <div class="score-main">
+                        <div class="score-circle" id="scoreValue">--</div>
+                        <div class="score-text">
+                            <h3 id="verdictTitle">No Analysis</h3>
+                            <p id="confidenceText"></p>
+                            <span class="classification-badge" id="classificationBadge"></span>
                         </div>
                     </div>
 
-                    <div class="analysis-panel">
-                        <div class="analysis-header">
-                            <h3>Analysis Results</h3>
-                            <div class="analysis-status" id="analysisStatus">
-                                <i class="fas fa-spinner fa-spin"></i>
-                                <span>Analyzing...</span>
+                    <div class="verdict-text" id="verdictDescription"></div>
+
+                    <div class="metrics-grid">
+                        <div class="metric-item">
+                            <div class="metric-label">
+                                <span>Compression</span>
+                                <span id="m1">--</span>
+                            </div>
+                            <div class="metric-bar">
+                                <div class="metric-fill" id="b1"></div>
                             </div>
                         </div>
 
-                        <div class="results" id="results" style="display: none;">
-                            <div class="authenticity-score">
-                                <div class="score-header">
-                                    <span>Authenticity Score</span>
-                                    <span id="scoreValue">--</span>
-                                </div>
-                                <div class="score-bar">
-                                    <div class="score-fill" id="scoreFill"></div>
-                                </div>
-                                <div class="score-labels">
-                                    <span>Likely AI</span>
-                                    <span>Likely Real</span>
-                                </div>
+                        <div class="metric-item">
+                            <div class="metric-label">
+                                <span>Edge Consistency</span>
+                                <span id="m2">--</span>
                             </div>
-
-                            <div class="verdict" id="verdict">
-                                <div class="verdict-icon">
-                                    <i id="verdictIcon"></i>
-                                </div>
-                                <div class="verdict-text">
-                                    <h4 id="verdictTitle"></h4>
-                                    <p id="verdictDescription"></p>
-                                </div>
+                            <div class="metric-bar">
+                                <div class="metric-fill" id="b2"></div>
                             </div>
+                        </div>
 
-                            <div class="technical-details">
-                                <h4>Technical Analysis</h4>
-                                <div class="detail-grid">
-                                    <div class="detail-item">
-                                        <span class="detail-label">Compression Artifacts</span>
-                                        <span class="detail-value" id="compressionValue">--</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="detail-label">Edge Consistency</span>
-                                        <span class="detail-value" id="edgeValue">--</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="detail-label">Noise Patterns</span>
-                                        <span class="detail-value" id="noiseValue">--</span>
-                                    </div>
-                                    <div class="detail-item">
-                                        <span class="detail-label">Color Distribution</span>
-                                        <span class="detail-value" id="colorValue">--</span>
-                                    </div>
-                                </div>
+                        <div class="metric-item">
+                            <div class="metric-label">
+                                <span>Noise Patterns</span>
+                                <span id="m3">--</span>
                             </div>
+                            <div class="metric-bar">
+                                <div class="metric-fill" id="b3"></div>
+                            </div>
+                        </div>
 
-                            <div class="action-buttons">
-                                <button class="btn btn-secondary" id="analyzeAgainBtn">
-                                    <i class="fas fa-redo"></i>
-                                    Analyze Another
-                                </button>
-                                <button class="btn btn-primary" id="downloadReportBtn">
-                                    <i class="fas fa-download"></i>
-                                    Download Report
-                                </button>
+                        <div class="metric-item">
+                            <div class="metric-label">
+                                <span>Color Distribution</span>
+                                <span id="m4">--</span>
+                            </div>
+                            <div class="metric-bar">
+                                <div class="metric-fill" id="b4"></div>
+                            </div>
+                        </div>
+
+                        <div class="metric-item">
+                            <div class="metric-label">
+                                <span>Frequency Analysis</span>
+                                <span id="m5">--</span>
+                            </div>
+                            <div class="metric-bar">
+                                <div class="metric-fill" id="b5"></div>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </section>
 
-    <!-- About Section -->
-    <section id="about" class="about-section">
-        <div class="container">
-            <h2>About DeepFake Detection</h2>
-            <div class="about-grid">
-                <div class="about-card">
-                    <i class="fas fa-brain"></i>
-                    <h3>AI-Powered Analysis</h3>
-                    <p>Our advanced neural networks analyze pixel-level inconsistencies, compression artifacts, and generation patterns to identify AI-created content.</p>
-                </div>
-                <div class="about-card">
-                    <i class="fas fa-lightning-bolt"></i>
-                    <h3>Real-time Detection</h3>
-                    <p>Get instant results with our optimized algorithms that can process images in seconds while maintaining high accuracy rates.</p>
-                </div>
-                <div class="about-card">
-                    <i class="fas fa-lock"></i>
-                    <h3>Privacy Focused</h3>
-                    <p>All image analysis is performed locally in your browser. Your images are never uploaded to our servers or stored anywhere.</p>
+                <div class="report-section">
+                    <h4>Report</h4>
+                    <textarea id="reportArea" readonly placeholder="Analysis results will appear here..."></textarea>
+                    <button class="btn-secondary" id="downloadBtn" style="width: 100%; margin-top: 8px;" disabled>
+                        ⬇️ Download Report
+                    </button>
                 </div>
             </div>
         </div>
-    </section>
 
-    <!-- How It Works Section -->
-    <section id="how-it-works" class="how-it-works">
-        <div class="container">
-            <h2>How It Works</h2>
-            <div class="steps">
-                <div class="step">
-                    <div class="step-number">1</div>
-                    <h3>Upload Image</h3>
-                    <p>Drag and drop or browse to select an image for analysis</p>
-                </div>
-                <div class="step">
-                    <div class="step-number">2</div>
-                    <h3>AI Analysis</h3>
-                    <p>Our algorithms examine compression, edges, noise, and generation patterns</p>
-                </div>
-                <div class="step">
-                    <div class="step-number">3</div>
-                    <h3>Get Results</h3>
-                    <p>Receive a detailed authenticity score and technical breakdown</p>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-content">
-                <div class="footer-brand">
-                    <i class="fas fa-shield-alt"></i>
-                    <span>DeepFake Shield</span>
-                </div>
-                <div class="footer-links">
-                    <a href="#privacy">Privacy Policy</a>
-                    <a href="#terms">Terms of Service</a>
-                    <a href="#api">API Access</a>
-                    <a href="#support">Support</a>
-                </div>
-            </div>
-            <div class="footer-bottom">
-                <p>&copy; 2025 DeepFake Shield. Advanced AI Detection Technology.</p>
-            </div>
-        </div>
-    </footer>
-
-    <!-- Loading Overlay -->
-    <div class="loading-overlay" id="loadingOverlay" style="display: none;">
-        <div class="loading-content">
-            <div class="loading-spinner"></div>
-            <h3>Analyzing Image...</h3>
-            <p>Running neural network analysis</p>
+        <div class="footer">
+            DeepFake Shield v3.0.0 · Forensic analysis tool · Not legal advice
         </div>
     </div>
 
-    <style>
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-}
-
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
-    color: #ffffff;
-    line-height: 1.6;
-}
-
-.container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 20px;
-}
-
-/* Navigation */
-.navbar {
-    position: fixed;
-    top: 0;
-    width: 100%;
-    background: rgba(15, 15, 35, 0.95);
-    backdrop-filter: blur(10px);
-    z-index: 1000;
-    padding: 1rem 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.nav-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 20px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.nav-brand {
-    display: flex;
-    align-items: center;
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: #00d4ff;
-}
-
-.nav-brand i {
-    margin-right: 0.5rem;
-}
-
-.nav-menu {
-    display: flex;
-    gap: 2rem;
-}
-
-.nav-link {
-    color: #ffffff;
-    text-decoration: none;
-    transition: all 0.3s ease;
-    padding: 0.5rem 1rem;
-    border-radius: 8px;
-}
-
-.nav-link:hover,
-.nav-link.active {
-    color: #00d4ff;
-    background: rgba(0, 212, 255, 0.1);
-}
-
-/* Hero Section */
-.hero {
-    margin-top: 80px;
-    padding: 4rem 0;
-    text-align: center;
-}
-
-.hero-container {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 0 20px;
-}
-
-.hero-title {
-    font-size: 3.5rem;
-    font-weight: bold;
-    margin-bottom: 1rem;
-    background: linear-gradient(45deg, #00d4ff, #ff006e);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-}
-
-.hero-subtitle {
-    font-size: 1.2rem;
-    color: #b0b0b0;
-    margin-bottom: 3rem;
-    max-width: 600px;
-    margin-left: auto;
-    margin-right: auto;
-}
-
-.hero-stats {
-    display: flex;
-    justify-content: center;
-    gap: 4rem;
-    margin-top: 2rem;
-}
-
-.stat {
-    text-align: center;
-}
-
-.stat-number {
-    display: block;
-    font-size: 2.5rem;
-    font-weight: bold;
-    color: #00d4ff;
-}
-
-.stat-label {
-    color: #b0b0b0;
-    font-size: 0.9rem;
-}
-
-/* Detection Section */
-.detection-section {
-    padding: 4rem 0;
-}
-
-.detection-container {
-    max-width: 1000px;
-    margin: 0 auto;
-}
-
-.upload-area {
-    border: 2px dashed #00d4ff;
-    border-radius: 16px;
-    padding: 3rem;
-    text-align: center;
-    background: rgba(0, 212, 255, 0.05);
-    transition: all 0.3s ease;
-    cursor: pointer;
-}
-
-.upload-area:hover {
-    border-color: #ff006e;
-    background: rgba(255, 0, 110, 0.05);
-    transform: translateY(-2px);
-}
-
-.upload-area.dragover {
-    border-color: #ff006e;
-    background: rgba(255, 0, 110, 0.1);
-    transform: scale(1.02);
-}
-
-.upload-icon {
-    font-size: 4rem;
-    color: #00d4ff;
-    margin-bottom: 1rem;
-}
-
-.upload-content h3 {
-    font-size: 1.5rem;
-    margin-bottom: 0.5rem;
-    color: #ffffff;
-}
-
-.upload-content p {
-    color: #b0b0b0;
-    margin-bottom: 2rem;
-}
-
-.browse-btn {
-    background: linear-gradient(45deg, #00d4ff, #0099cc);
-    color: white;
-    border: none;
-    padding: 1rem 2rem;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.browse-btn:hover {
-    background: linear-gradient(45deg, #ff006e, #cc0055);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(255, 0, 110, 0.3);
-}
-
-/* Analysis Container */
-.analysis-container {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 3rem;
-    margin-top: 2rem;
-}
-
-.image-preview {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 16px;
-    padding: 2rem;
-    backdrop-filter: blur(10px);
-}
-
-.image-preview img {
-    width: 100%;
-    max-height: 400px;
-    object-fit: contain;
-    border-radius: 12px;
-    margin-bottom: 1rem;
-}
-
-.image-info {
-    display: flex;
-    justify-content: space-between;
-    color: #b0b0b0;
-    font-size: 0.9rem;
-}
-
-.analysis-panel {
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 16px;
-    padding: 2rem;
-    backdrop-filter: blur(10px);
-}
-
-.analysis-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 2rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.analysis-status {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    color: #00d4ff;
-}
-
-/* Results */
-.authenticity-score {
-    margin-bottom: 2rem;
-}
-
-.score-header {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 1rem;
-}
-
-#scoreValue {
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: #00d4ff;
-}
-
-.score-bar {
-    height: 12px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 6px;
-    overflow: hidden;
-    margin-bottom: 0.5rem;
-}
-
-.score-fill {
-    height: 100%;
-    background: linear-gradient(90deg, #ff006e, #ffaa00, #00d4ff);
-    border-radius: 6px;
-    transition: width 1s ease;
-}
-
-.score-labels {
-    display: flex;
-    justify-content: space-between;
-    font-size: 0.8rem;
-    color: #b0b0b0;
-}
-
-.verdict {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    padding: 1.5rem;
-    border-radius: 12px;
-    margin-bottom: 2rem;
-}
-
-.verdict.authentic {
-    background: rgba(0, 255, 127, 0.1);
-    border: 1px solid rgba(0, 255, 127, 0.3);
-}
-
-.verdict.suspicious {
-    background: rgba(255, 165, 0, 0.1);
-    border: 1px solid rgba(255, 165, 0, 0.3);
-}
-
-.verdict.fake {
-    background: rgba(255, 0, 110, 0.1);
-    border: 1px solid rgba(255, 0, 110, 0.3);
-}
-
-.verdict-icon {
-    font-size: 2rem;
-}
-
-.verdict-text h4 {
-    margin-bottom: 0.5rem;
-}
-
-.verdict-text p {
-    color: #b0b0b0;
-    font-size: 0.9rem;
-}
-
-.technical-details h4 {
-    margin-bottom: 1rem;
-    color: #00d4ff;
-}
-
-.detail-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-bottom: 2rem;
-}
-
-.detail-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 1rem;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 8px;
-}
-
-.detail-label {
-    color: #b0b0b0;
-}
-
-.detail-value {
-    font-weight: 600;
-    color: #ffffff;
-}
-
-.action-buttons {
-    display: flex;
-    gap: 1rem;
-}
-
-.btn {
-    padding: 1rem 1.5rem;
-    border: none;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.btn-primary {
-    background: linear-gradient(45deg, #00d4ff, #0099cc);
-    color: white;
-}
-
-.btn-secondary {
-    background: rgba(255, 255, 255, 0.1);
-    color: white;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-}
-
-.btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 25px rgba(0, 212, 255, 0.3);
-}
-
-/* About Section */
-.about-section {
-    padding: 4rem 0;
-    background: rgba(255, 255, 255, 0.02);
-}
-
-.about-section h2 {
-    text-align: center;
-    font-size: 2.5rem;
-    margin-bottom: 3rem;
-    color: #00d4ff;
-}
-
-.about-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 2rem;
-}
-
-.about-card {
-    background: rgba(255, 255, 255, 0.05);
-    padding: 2rem;
-    border-radius: 16px;
-    text-align: center;
-    backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    transition: all 0.3s ease;
-}
-
-.about-card:hover {
-    transform: translateY(-5px);
-    border-color: #00d4ff;
-}
-
-.about-card i {
-    font-size: 3rem;
-    color: #00d4ff;
-    margin-bottom: 1rem;
-}
-
-.about-card h3 {
-    margin-bottom: 1rem;
-    color: #ffffff;
-}
-
-.about-card p {
-    color: #b0b0b0;
-}
-
-/* How It Works */
-.how-it-works {
-    padding: 4rem 0;
-}
-
-.how-it-works h2 {
-    text-align: center;
-    font-size: 2.5rem;
-    margin-bottom: 3rem;
-    color: #00d4ff;
-}
-
-.steps {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 2rem;
-}
-
-.step {
-    text-align: center;
-    padding: 2rem;
-}
-
-.step-number {
-    display: inline-block;
-    width: 60px;
-    height: 60px;
-    background: linear-gradient(45deg, #00d4ff, #ff006e);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: white;
-    margin: 0 auto 1rem;
-}
-
-.step h3 {
-    margin-bottom: 1rem;
-    color: #ffffff;
-}
-
-.step p {
-    color: #b0b0b0;
-}
-
-/* Footer */
-.footer {
-    background: rgba(15, 15, 35, 0.95);
-    padding: 2rem 0;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.footer-content {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-}
-
-.footer-brand {
-    display: flex;
-    align-items: center;
-    font-size: 1.2rem;
-    font-weight: bold;
-    color: #00d4ff;
-}
-
-.footer-brand i {
-    margin-right: 0.5rem;
-}
-
-.footer-links {
-    display: flex;
-    gap: 2rem;
-}
-
-.footer-links a {
-    color: #b0b0b0;
-    text-decoration: none;
-    transition: color 0.3s ease;
-}
-
-.footer-links a:hover {
-    color: #00d4ff;
-}
-
-.footer-bottom {
-    text-align: center;
-    padding-top: 1rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
-    color: #b0b0b0;
-}
-
-/* Loading Overlay */
-.loading-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(15, 15, 35, 0.95);
-    backdrop-filter: blur(10px);
-    z-index: 2000;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.loading-content {
-    text-align: center;
-}
-
-.loading-spinner {
-    width: 60px;
-    height: 60px;
-    border: 4px solid rgba(255, 255, 255, 0.1);
-    border-top: 4px solid #00d4ff;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-    margin: 0 auto 2rem;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-.loading-content h3 {
-    margin-bottom: 1rem;
-    color: #ffffff;
-}
-
-.loading-content p {
-    color: #b0b0b0;
-}
-
-/* Responsive Design */
-@media (max-width: 768px) {
-    .hero-title {
-        font-size: 2.5rem;
-    }
-    
-    .hero-stats {
-        flex-direction: column;
-        gap: 2rem;
-    }
-    
-    .analysis-container {
-        grid-template-columns: 1fr;
-        gap: 2rem;
-    }
-    
-    .nav-menu {
-        display: none;
-    }
-    
-    .footer-content {
-        flex-direction: column;
-        gap: 1rem;
-    }
-    
-    .steps {
-        grid-template-columns: 1fr;
-    }
-    
-    .detail-grid {
-        grid-template-columns: 1fr;
-    }
-}
-    </style>
-
     <script>
-// DeepFake Detection Frontend - Calls Python API
-const API_URL = 'http://localhost:5000/api';
+        const API = window.location.origin + "/api";
 
-class DeepFakeDetector {
-    constructor() {
-        this.initializeElements();
-        this.attachEventListeners();
-        this.analysisResults = null;
-    }
+        const dropzone = document.getElementById("dropzone");
+        const fileInfo = document.getElementById("fileInfo");
+        const previewBox = document.getElementById("previewBox");
+        const previewImg = document.getElementById("previewImg");
+        const analyzeBtn = document.getElementById("analyzeBtn");
+        const clearBtn = document.getElementById("clearBtn");
+        const statusMsg = document.getElementById("statusMsg");
+        const scoreDisplay = document.getElementById("scoreDisplay");
+        const reportArea = document.getElementById("reportArea");
+        const downloadBtn = document.getElementById("downloadBtn");
 
-    initializeElements() {
-        this.uploadArea = document.getElementById('uploadArea');
-        this.fileInput = document.getElementById('fileInput');
-        this.browseBtn = document.getElementById('browseBtn');
-        this.analysisContainer = document.getElementById('analysisContainer');
-        this.previewImage = document.getElementById('previewImage');
-        this.fileName = document.getElementById('fileName');
-        this.fileSize = document.getElementById('fileSize');
-        this.analysisStatus = document.getElementById('analysisStatus');
-        this.results = document.getElementById('results');
-        this.scoreValue = document.getElementById('scoreValue');
-        this.scoreFill = document.getElementById('scoreFill');
-        this.verdict = document.getElementById('verdict');
-        this.verdictIcon = document.getElementById('verdictIcon');
-        this.verdictTitle = document.getElementById('verdictTitle');
-        this.verdictDescription = document.getElementById('verdictDescription');
-        this.loadingOverlay = document.getElementById('loadingOverlay');
-        this.analyzeAgainBtn = document.getElementById('analyzeAgainBtn');
-        this.downloadReportBtn = document.getElementById('downloadReportBtn');
-        
-        // Technical detail elements
-        this.compressionValue = document.getElementById('compressionValue');
-        this.edgeValue = document.getElementById('edgeValue');
-        this.noiseValue = document.getElementById('noiseValue');
-        this.colorValue = document.getElementById('colorValue');
-    }
+        let currentFile = null;
 
-    attachEventListeners() {
-        // File upload events
-        this.uploadArea.addEventListener('click', () => this.fileInput.click());
-        this.browseBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            this.fileInput.click();
+        function resetUI() {
+            currentFile = null;
+            fileInfo.textContent = "";
+            fileInfo.classList.remove("show");
+            previewBox.classList.remove("show");
+            analyzeBtn.disabled = true;
+            statusMsg.textContent = "";
+            scoreDisplay.style.display = "none";
+            reportArea.value = "";
+            downloadBtn.disabled = true;
+        }
+
+        clearBtn.addEventListener("click", resetUI);
+
+        dropzone.addEventListener("click", () => {
+            const input = document.createElement("input");
+            input.type = "file";
+            input.accept = ".jpg,.jpeg,.png,.webp";
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (file) handleFile(file);
+            };
+            input.click();
         });
-        this.fileInput.addEventListener('change', (e) => this.handleFileSelect(e));
 
-        // Drag and drop events
-        this.uploadArea.addEventListener('dragover', (e) => this.handleDragOver(e));
-        this.uploadArea.addEventListener('dragleave', (e) => this.handleDragLeave(e));
-        this.uploadArea.addEventListener('drop', (e) => this.handleDrop(e));
-
-        // Action buttons
-        this.analyzeAgainBtn.addEventListener('click', () => this.resetInterface());
-        this.downloadReportBtn.addEventListener('click', () => this.downloadReport());
-
-        // Navigation
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.addEventListener('click', (e) => this.handleNavigation(e));
+        dropzone.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            dropzone.classList.add("dragover");
         });
-    }
 
-    handleDragOver(e) {
-        e.preventDefault();
-        this.uploadArea.classList.add('dragover');
-    }
+        dropzone.addEventListener("dragleave", () => {
+            dropzone.classList.remove("dragover");
+        });
 
-    handleDragLeave(e) {
-        e.preventDefault();
-        this.uploadArea.classList.remove('dragover');
-    }
+        dropzone.addEventListener("drop", (e) => {
+            e.preventDefault();
+            dropzone.classList.remove("dragover");
+            const file = e.dataTransfer.files[0];
+            if (file) handleFile(file);
+        });
 
-    handleDrop(e) {
-        e.preventDefault();
-        this.uploadArea.classList.remove('dragover');
-        
-        const files = e.dataTransfer.files;
-        if (files.length > 0) {
-            this.processFile(files[0]);
-        }
-    }
+        function handleFile(file) {
+            currentFile = file;
+            fileInfo.textContent = `✓ ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+            fileInfo.classList.add("show");
 
-    handleFileSelect(e) {
-        const file = e.target.files[0];
-        if (file) {
-            this.processFile(file);
-        }
-    }
+            const url = URL.createObjectURL(file);
+            previewImg.src = url;
+            previewBox.classList.add("show");
 
-    processFile(file) {
-        // Validate file type
-        if (!file.type.startsWith('image/')) {
-            alert('Please select a valid image file.');
-            return;
+            analyzeBtn.disabled = false;
+            statusMsg.textContent = "Ready to analyze";
         }
 
-        // Validate file size (10MB limit)
-        if (file.size > 10 * 1024 * 1024) {
-            alert('File size must be less than 10MB.');
-            return;
-        }
+        analyzeBtn.addEventListener("click", async () => {
+            if (!currentFile) return;
 
-        // Show loading overlay
-        this.loadingOverlay.style.display = 'flex';
+            analyzeBtn.disabled = true;
+            const btnText = document.getElementById("analyzeBtnText");
+            const originalText = btnText.textContent;
+            btnText.innerHTML = '<span class="loading"></span> Analyzing...';
+            statusMsg.textContent = "Processing...";
 
-        // Create file reader
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            this.displayImage(e.target.result, file);
-            this.startAnalysis(e.target.result, file);
-        };
-        reader.readAsDataURL(file);
-    }
+            try {
+                const form = new FormData();
+                form.append("file", currentFile);
 
-    displayImage(imageSrc, file) {
-        // Hide upload area, show analysis container
-        this.uploadArea.style.display = 'none';
-        this.analysisContainer.style.display = 'grid';
+                const res = await fetch(API + "/analyze", {
+                    method: "POST",
+                    body: form
+                });
 
-        // Set image and file info
-        this.previewImage.src = imageSrc;
-        this.fileName.textContent = file.name;
-        this.fileSize.textContent = this.formatFileSize(file.size);
+                const data = await res.json();
 
-        // Show analysis status
-        this.analysisStatus.style.display = 'flex';
-        this.results.style.display = 'none';
-    }
+                if (!data.success) {
+                    statusMsg.textContent = "❌ " + (data.message || data.error);
+                    analyzeBtn.disabled = false;
+                    btnText.textContent = originalText;
+                    return;
+                }
 
-    async startAnalysis(imageBase64, file) {
-        try {
-            // Call Python API for analysis
-            const response = await fetch(`${API_URL}/analyze`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    image: imageBase64
-                })
+                displayResults(data.results);
+                statusMsg.textContent = "✓ Analysis complete";
+                downloadBtn.disabled = false;
+
+            } catch (e) {
+                statusMsg.textContent = "❌ Error: " + e.message;
+            } finally {
+                analyzeBtn.disabled = false;
+                btnText.textContent = originalText;
+            }
+        });
+
+        function displayResults(results) {
+            const score = results.authenticity_score || 0;
+            const v = results.verdict || {};
+            const td = results.technical_details || {};
+
+            // Score display
+            document.getElementById("scoreValue").textContent = score.toFixed(1);
+            document.getElementById("verdictTitle").textContent = v.title || "Result";
+            document.getElementById("verdictDescription").textContent = v.description || "";
+            document.getElementById("confidenceText").textContent = "Confidence: " + (v.confidence || "N/A").toUpperCase();
+
+            // Classification badge
+            const badge = document.getElementById("classificationBadge");
+            badge.textContent = (v.classification || "unknown").toUpperCase();
+            badge.className = "classification-badge badge-" + (v.classification || "unknown");
+
+            // Metrics
+            const metrics = [
+                ["m1", "b1", td.compression_artifacts],
+                ["m2", "b2", td.edge_consistency],
+                ["m3", "b3", td.noise_patterns],
+                ["m4", "b4", td.color_distribution],
+                ["m5", "b5", td.frequency_analysis],
+            ];
+
+            metrics.forEach(([label, bar, value]) => {
+                const v = Math.max(0, Math.min(100, value || 0));
+                document.getElementById(label).textContent = v.toFixed(1);
+                document.getElementById(bar).style.width = v + "%";
             });
 
-            if (!response.ok) {
-                throw new Error(`API error: ${response.statusText}`);
-            }
+            // Generate report
+            generateReport(results);
 
-            const data = await response.json();
-            
-            if (!data.success) {
-                throw new Error(data.message || 'Analysis failed');
-            }
-
-            // Hide loading overlay
-            this.loadingOverlay.style.display = 'none';
-
-            // Format results for display
-            const results = {
-                authenticityScore: data.results.authenticity_score,
-                compression: data.results.technical_details.compression_artifacts,
-                edgeConsistency: data.results.technical_details.edge_consistency,
-                noisePatterns: data.results.technical_details.noise_patterns,
-                colorDistribution: data.results.technical_details.color_distribution,
-                frequencyAnalysis: data.results.technical_details.frequency_analysis,
-                verdict: data.results.verdict,
-                filename: file.name,
-                filesize: this.formatFileSize(file.size),
-                modelVersion: data.results.model_version
-            };
-
-            // Display results
-            this.displayResults(results);
-        } catch (error) {
-            console.error('Analysis failed:', error);
-            this.loadingOverlay.style.display = 'none';
-            alert(`Analysis failed: ${error.message}\n\nMake sure the Python API server is running (python app.py)`);
-            this.resetInterface();
+            scoreDisplay.style.display = "block";
         }
-    }
 
-    displayResults(results) {
-        this.analysisResults = results;
-        
-        // Hide analysis status, show results
-        this.analysisStatus.style.display = 'none';
-        this.results.style.display = 'block';
-        
-        // Set authenticity score
-        this.scoreValue.textContent = `${results.authenticityScore.toFixed(1)}%`;
-        this.scoreFill.style.width = `${results.authenticityScore}%`;
-        
-        // Use verdict from API
-        const verdict = results.verdict;
-        let verdictClass, iconClass;
-        
-        if (verdict.classification === 'authentic') {
-            verdictClass = 'authentic';
-            iconClass = 'fas fa-check-circle';
-        } else if (verdict.classification === 'suspicious') {
-            verdictClass = 'suspicious';
-            iconClass = 'fas fa-exclamation-triangle';
-        } else {
-            verdictClass = 'fake';
-            iconClass = 'fas fa-times-circle';
-        }
-        
-        // Apply verdict styling
-        this.verdict.className = `verdict ${verdictClass}`;
-        this.verdictIcon.className = iconClass;
-        this.verdictTitle.textContent = verdict.title;
-        this.verdictDescription.textContent = verdict.description;
-        
-        // Set technical details
-        this.compressionValue.textContent = `${results.compression.toFixed(1)}%`;
-        this.edgeValue.textContent = `${results.edgeConsistency.toFixed(1)}%`;
-        this.noiseValue.textContent = `${results.noisePatterns.toFixed(1)}%`;
-        this.colorValue.textContent = `${results.colorDistribution.toFixed(1)}%`;
-    }
+        async function generateReport(results) {
+            try {
+                const res = await fetch(API + "/generate-report", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ results })
+                });
 
-    resetInterface() {
-        // Reset to upload state
-        this.analysisContainer.style.display = 'none';
-        this.uploadArea.style.display = 'block';
-        this.fileInput.value = '';
-        this.analysisResults = null;
-        
-        // Reset form elements
-        this.previewImage.src = '';
-        this.results.style.display = 'none';
-        this.analysisStatus.style.display = 'flex';
-    }
-
-    downloadReport() {
-        if (!this.analysisResults) return;
-        
-        const report = this.generateReport();
-        const blob = new Blob([report], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `deepfake_analysis_${Date.now()}.txt`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-
-    generateReport() {
-        const results = this.analysisResults;
-        const date = new Date().toLocaleString();
-        
-        return `DEEPFAKE DETECTION REPORT
-=============================================
-
-Analysis Date: ${date}
-File Name: ${results.filename}
-File Size: ${results.filesize}
-Model Version: ${results.modelVersion}
-
-AUTHENTICITY SCORE: ${results.authenticityScore.toFixed(2)}%
-
-VERDICT: ${results.verdict.title.toUpperCase()}
-
-TECHNICAL ANALYSIS:
-- Compression Artifacts: ${results.compression.toFixed(2)}%
-- Edge Consistency: ${results.edgeConsistency.toFixed(2)}%
-- Noise Patterns: ${results.noisePatterns.toFixed(2)}%
-- Color Distribution: ${results.colorDistribution.toFixed(2)}%
-- Frequency Analysis: ${results.frequencyAnalysis.toFixed(2)}%
-
-INTERPRETATION:
-${results.verdict.description}
-
-Confidence Level: ${results.verdict.confidence.toUpperCase()}
-
-DISCLAIMER:
-This analysis is based on computational algorithms and should not be 
-considered definitive proof. Human expert review is recommended for 
-critical applications.
-
-Generated by DeepFake Shield v${results.modelVersion}
-=============================================`;
-    }
-
-    formatFileSize(bytes) {
-        if (bytes === 0) return '0 Bytes';
-        const k = 1024;
-        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-        const i = Math.floor(Math.log(bytes) / Math.log(k));
-        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-    }
-
-    handleNavigation(e) {
-        e.preventDefault();
-        const targetId = e.target.getAttribute('href');
-        
-        // Update active nav link
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.classList.remove('active');
-        });
-        e.target.classList.add('active');
-        
-        // Smooth scroll to section
-        if (targetId && targetId !== '#') {
-            const targetSection = document.querySelector(targetId);
-            if (targetSection) {
-                targetSection.scrollIntoView({ behavior: 'smooth' });
-            }
-        }
-    }
-}
-
-// Initialize the application
-document.addEventListener('DOMContentLoaded', () => {
-    new DeepFakeDetector();
-    
-    // Add smooth scrolling for anchor links
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function (e) {
-            e.preventDefault();
-            const targetId = this.getAttribute('href');
-            const targetSection = document.querySelector(targetId);
-            if (targetSection) {
-                targetSection.scrollIntoView({ behavior: 'smooth' });
-            }
-        });
-    });
-
-    // Add intersection observer for navbar background
-    const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-            if (entry.target.id === 'home') {
-                const navbar = document.querySelector('.navbar');
-                if (entry.isIntersecting) {
-                    navbar.style.background = 'rgba(15, 15, 35, 0.8)';
-                } else {
-                    navbar.style.background = 'rgba(15, 15, 35, 0.95)';
+                const data = await res.json();
+                if (data.success) {
+                    reportArea.value = data.report;
                 }
+            } catch (e) {
+                console.error("Report error:", e);
             }
-        });
-    });
-
-    const heroSection = document.querySelector('#home');
-    if (heroSection) {
-        observer.observe(heroSection);
-    }
-});
-
-// Add some interactive elements
-document.addEventListener('mousemove', (e) => {
-    const cards = document.querySelectorAll('.about-card, .upload-area');
-    cards.forEach(card => {
-        const rect = card.getBoundingClientRect();
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        
-        if (x >= 0 && x <= rect.width && y >= 0 && y <= rect.height) {
-            const centerX = rect.width / 2;
-            const centerY = rect.height / 2;
-            const rotateX = (y - centerY) / 10;
-            const rotateY = (centerX - x) / 10;
-            
-            card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translateZ(10px)`;
-        } else {
-            card.style.transform = 'perspective(1000px) rotateX(0) rotateY(0) translateZ(0)';
         }
-    });
-});
 
-// Performance monitoring
-window.addEventListener('load', () => {
-    console.log('🛡️ DeepFake Shield loaded successfully');
-    console.log('Ready to analyze images for AI-generated content');
-});
+        downloadBtn.addEventListener("click", () => {
+            const text = reportArea.value;
+            if (!text) return;
+
+            const blob = new Blob([text], { type: "text/plain" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "deepfake_shield_report_" + new Date().toISOString().split("T")[0] + ".txt";
+            a.click();
+            URL.revokeObjectURL(url);
+        });
     </script>
 </body>
 </html>
-            

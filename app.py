@@ -1,200 +1,267 @@
 """
-Flask API Server for DeepFake Detection
-Provides REST API endpoints for the frontend to call
+DeepFake Shield API Server v3.0.0
+Proper Flask backend with fixed detection algorithms
 """
 
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
 from model import DeepFakeDetector
-import base64
+from utils import ImageValidator, ReportGenerator
 from PIL import Image
 import io
 import traceback
-import os
+import logging
+from datetime import datetime
 
-app = Flask(__name__)
-CORS(app)  # Enable CORS for frontend requests
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 
-# Initialize the detector
+app = Flask(__name__, static_folder=".", static_url_path="")
+CORS(app)
+
 detector = DeepFakeDetector()
+validator = ImageValidator()
+report_generator = ReportGenerator()
+
+MAX_IMAGE_SIZE = 15 * 1024 * 1024  # 15 MB
 
 
-@app.route('/')
+@app.route("/")
 def home():
-    """Serve the frontend HTML"""
-    return send_from_directory('.', 'index.html')
+    return send_from_directory(".", "index.html")
 
 
-@app.route('/<path:path>')
-def serve_static(path):
-    """Serve static files"""
-    return send_from_directory('.', path)
-
-
-@app.route('/api/health', methods=['GET'])
+@app.route("/api/health", methods=["GET"])
 def health_check():
-    """Health check endpoint"""
-    return jsonify({
-        'status': 'healthy',
-        'model_version': detector.model_version
-    })
+    return jsonify(
+        {
+            "status": "healthy",
+            "model_version": detector.model_version,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "features": {
+                "single_analysis": True,
+                "batch_analysis": True,
+                "reports": True,
+            },
+        }
+    )
 
 
-@app.route('/api/analyze', methods=['POST'])
+@app.route("/api/analyze", methods=["POST"])
 def analyze_image():
-    """
-    Analyze image for deepfake detection
-    
-    Accepts:
-        - JSON with base64 encoded image
-        - Multipart form data with image file
-    
-    Returns:
-        JSON with analysis results
-    """
     try:
-        # Check if request contains JSON data
+        start = datetime.utcnow()
+
         if request.is_json:
-            data = request.get_json()
-            
-            if 'image' not in data:
-                return jsonify({
-                    'error': 'No image data provided',
-                    'message': 'Please provide image data in base64 format'
-                }), 400
-            
-            # Get base64 image data
-            image_data = data['image']
-            
-            # Analyze image
-            results = detector.analyze_image(image_data)
-            
-            return jsonify({
-                'success': True,
-                'results': results
-            })
-        
-        # Check if request contains file upload
-        elif 'file' in request.files:
-            file = request.files['file']
-            
-            if file.filename == '':
-                return jsonify({
-                    'error': 'No file selected',
-                    'message': 'Please select an image file'
-                }), 400
-            
-            # Read image file
+            data = request.get_json(silent=True) or {}
+            image_b64 = data.get("image")
+            if not image_b64:
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "error": "No image field",
+                            "message": "Provide 'image' base64 in JSON body.",
+                        }
+                    ),
+                    400,
+                )
+
+            ok, msg = validator.validate_base64(image_b64, max_size_bytes=MAX_IMAGE_SIZE)
+            if not ok:
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "error": "Invalid image data",
+                            "message": msg,
+                        }
+                    ),
+                    400,
+                )
+
+            results = detector.analyze_image(image_b64)
+
+        elif "file" in request.files:
+            file = request.files["file"]
+            if not file or file.filename == "":
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "error": "No file provided",
+                            "message": "Upload an image file.",
+                        }
+                    ),
+                    400,
+                )
+
+            ok, msg = validator.validate_file(file, max_size_bytes=MAX_IMAGE_SIZE)
+            if not ok:
+                return (
+                    jsonify(
+                        {
+                            "success": False,
+                            "error": "Invalid file",
+                            "message": msg,
+                        }
+                    ),
+                    400,
+                )
+
+            file.stream.seek(0)
             image_bytes = file.read()
             image = Image.open(io.BytesIO(image_bytes))
-            
-            # Analyze image
             results = detector.analyze_image(image)
-            
-            return jsonify({
-                'success': True,
-                'results': results
-            })
-        
+
         else:
-            return jsonify({
-                'error': 'Invalid request format',
-                'message': 'Please provide image as JSON (base64) or multipart form data'
-            }), 400
-    
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "Bad request",
+                        "message": "Use JSON base64 or multipart 'file'.",
+                    }
+                ),
+                400,
+            )
+
+        elapsed = (datetime.utcnow() - start).total_seconds()
+        results["processing_time"] = round(elapsed, 3)
+
+        logger.info(
+            f"Analysis - score={results['authenticity_score']:.1f} classification={results['verdict']['classification']}"
+        )
+
+        return jsonify({"success": True, "results": results})
+
     except Exception as e:
-        print(f"Error analyzing image: {str(e)}")
-        print(traceback.format_exc())
-        
-        return jsonify({
-            'success': False,
-            'error': 'Analysis failed',
-            'message': str(e)
-        }), 500
+        logger.error(f"Error: {e}")
+        logger.debug(traceback.format_exc())
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "Analysis failed",
+                    "message": str(e),
+                }
+            ),
+            500,
+        )
 
 
-@app.route('/api/batch-analyze', methods=['POST'])
+@app.route("/api/batch-analyze", methods=["POST"])
 def batch_analyze():
-    """
-    Analyze multiple images in batch
-    
-    Accepts:
-        JSON with array of base64 encoded images
-    
-    Returns:
-        JSON with array of analysis results
-    """
     try:
-        data = request.get_json()
-        
-        if 'images' not in data or not isinstance(data['images'], list):
-            return jsonify({
-                'error': 'Invalid request',
-                'message': 'Please provide an array of images'
-            }), 400
-        
-        results = []
-        for idx, image_data in enumerate(data['images']):
+        data = request.get_json(silent=True) or {}
+        images = data.get("images", [])
+        if not isinstance(images, list) or not images:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "Invalid payload",
+                        "message": "Provide 'images' as a non-empty list.",
+                    }
+                ),
+                400,
+            )
+
+        if len(images) > 10:
+            return (
+                jsonify(
+                    {
+                        "success": False,
+                        "error": "Too many images",
+                        "message": "Maximum 10 images per request.",
+                    }
+                ),
+                400,
+            )
+
+        batch_results = []
+        for idx, img_b64 in enumerate(images):
             try:
-                result = detector.analyze_image(image_data)
-                results.append({
-                    'index': idx,
-                    'success': True,
-                    'results': result
-                })
-            except Exception as e:
-                results.append({
-                    'index': idx,
-                    'success': False,
-                    'error': str(e)
-                })
-        
-        return jsonify({
-            'success': True,
-            'total': len(data['images']),
-            'results': results
-        })
-    
+                ok, msg = validator.validate_base64(
+                    img_b64, max_size_bytes=MAX_IMAGE_SIZE
+                )
+                if not ok:
+                    batch_results.append(
+                        {
+                            "index": idx,
+                            "success": False,
+                            "error": msg,
+                        }
+                    )
+                    continue
+
+                r = detector.analyze_image(img_b64)
+                batch_results.append(
+                    {
+                        "index": idx,
+                        "success": True,
+                        "results": r,
+                    }
+                )
+            except Exception as ex:
+                batch_results.append(
+                    {
+                        "index": idx,
+                        "success": False,
+                        "error": str(ex),
+                    }
+                )
+
+        return jsonify(
+            {
+                "success": True,
+                "total": len(images),
+                "results": batch_results,
+            }
+        )
+
     except Exception as e:
-        print(f"Error in batch analysis: {str(e)}")
-        print(traceback.format_exc())
-        
-        return jsonify({
-            'success': False,
-            'error': 'Batch analysis failed',
-            'message': str(e)
-        }), 500
+        logger.error(f"Batch error: {e}")
+        logger.debug(traceback.format_exc())
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "Batch analysis failed",
+                    "message": str(e),
+                }
+            ),
+            500,
+        )
 
 
-@app.errorhandler(404)
-def not_found(error):
-    """Handle 404 errors"""
-    return jsonify({
-        'error': 'Endpoint not found',
-        'message': 'The requested endpoint does not exist'
-    }), 404
+@app.route("/api/generate-report", methods=["POST"])
+def generate_report():
+    data = request.get_json(silent=True) or {}
+    results = data.get("results")
+    if not results:
+        return (
+            jsonify(
+                {
+                    "success": False,
+                    "error": "No results",
+                    "message": "Provide 'results' object.",
+                }
+            ),
+            400,
+        )
+
+    report_text = report_generator.generate_text_report(results)
+    return jsonify({"success": True, "report": report_text})
 
 
-@app.errorhandler(500)
-def internal_error(error):
-    """Handle 500 errors"""
-    return jsonify({
-        'error': 'Internal server error',
-        'message': 'An unexpected error occurred'
-    }), 500
-
-
-if __name__ == '__main__':
-    print("=" * 50)
-    print("DeepFake Shield API Server")
-    print("=" * 50)
-    print("Starting server on http://localhost:5000")
-    print("\nAvailable endpoints:")
-    print("  GET  /              - Home")
-    print("  GET  /api/health    - Health check")
-    print("  POST /api/analyze   - Analyze single image")
-    print("  POST /api/batch-analyze - Analyze multiple images")
-    print("\nPress CTRL+C to stop the server")
-    print("=" * 50)
-    
-    app.run(debug=True, host='0.0.0.0', port=5000)
+if __name__ == "__main__":
+    print("=" * 60)
+    print("🛡️  DeepFake Shield v3.0.0")
+    print("=" * 60)
+    print("Running on http://localhost:5000")
+    print("=" * 60)
+    app.run(host="0.0.0.0", port=5000, debug=True)
